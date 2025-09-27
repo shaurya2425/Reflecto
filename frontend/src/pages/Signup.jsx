@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/services/firebase";
-import { useAuth } from "@/context/AuthContext"; // ✅ import our AuthContext
+import { useAuth } from "@/context/AuthContext";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,19 +15,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Eye,
-  EyeOff,
-  User,
-  Mail,
-  Lock,
-  ArrowLeft,
-  Sparkles,
-} from "lucide-react";
+
+import { Eye, EyeOff, User, Mail, Lock, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
-function Signup() {
-  const { setUser } = useAuth(); // ✅ get context method
+export default function Signup() {
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -35,10 +29,19 @@ function Signup() {
     password: "",
     confirmPassword: "",
   });
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 🔒 Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/home", { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleInputChange = (e) => {
     setFormData((prev) => ({
@@ -62,31 +65,26 @@ function Signup() {
     }
 
     setLoading(true);
-
     try {
-      // ✅ create user in Firebase
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
 
-      // ✅ update Firebase profile with displayName
       await updateProfile(userCredential.user, {
         displayName: formData.name,
       });
 
-      // ✅ update AuthContext
       setUser({
         uid: userCredential.user.uid,
         email: userCredential.user.email,
         displayName: formData.name,
       });
 
-      // ✅ navigate to dashboard
-      navigate("/");
-    } catch (error) {
-      setError(error.message);
+      navigate("/home", { replace: true });
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -94,43 +92,22 @@ function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
+      {/* Background animations */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
           className="absolute top-20 left-20 w-32 h-32 rounded-full bg-gradient-to-br from-green-500/20 to-teal-500/20 blur-xl"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute bottom-20 right-20 w-40 h-40 rounded-full bg-gradient-to-br from-teal-500/20 to-green-500/20 blur-xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.4, 0.2, 0.4],
-          }}
-          transition={{
-            duration: 5,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.2, 0.4] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
           className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 rounded-full bg-gradient-to-br from-green-400/10 to-teal-400/10 blur-2xl"
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
+          animate={{ rotate: [0, 360], scale: [1, 1.1, 1] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
         />
       </div>
 
@@ -152,9 +129,7 @@ function Signup() {
             </motion.div>
 
             <div className="space-y-2">
-              <CardTitle className="text-2xl text-glow">
-                Join Reflecto
-              </CardTitle>
+              <CardTitle className="text-2xl text-glow">Join Reflecto</CardTitle>
               <CardDescription className="text-green-100/80">
                 Start your mindful journaling journey today
               </CardDescription>
@@ -164,25 +139,18 @@ function Signup() {
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
                   <Alert className="border-red-500/50 bg-red-500/10">
-                    <AlertDescription className="text-red-200">
-                      {error}
-                    </AlertDescription>
+                    <AlertDescription className="text-red-200">{error}</AlertDescription>
                   </Alert>
                 </motion.div>
               )}
 
+              {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-green-100">
-                  Full Name
-                </Label>
+                <Label htmlFor="name" className="text-green-100">Full Name</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />
                   <Input
                     id="name"
                     name="name"
@@ -196,12 +164,11 @@ function Signup() {
                 </div>
               </div>
 
+              {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-green-100">
-                  Email
-                </Label>
+                <Label htmlFor="email" className="text-green-100">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />
                   <Input
                     id="email"
                     name="email"
@@ -215,12 +182,11 @@ function Signup() {
                 </div>
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-green-100">
-                  Password
-                </Label>
+                <Label htmlFor="password" className="text-green-100">Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />
                   <Input
                     id="password"
                     name="password"
@@ -234,23 +200,18 @@ function Signup() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-400 hover:text-green-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 hover:text-green-300 transition-colors"
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
+              {/* Confirm Password */}
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-green-100">
-                  Confirm Password
-                </Label>
+                <Label htmlFor="confirmPassword" className="text-green-100">Confirm Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -264,22 +225,15 @@ function Signup() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-400 hover:text-green-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 hover:text-green-300 transition-colors"
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="pt-4"
-              >
+              {/* Submit Button */}
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="pt-4">
                 <Button
                   type="submit"
                   disabled={loading}
@@ -300,8 +254,6 @@ function Signup() {
                   Sign in
                 </button>
               </p>
-
-             
             </div>
           </CardContent>
         </Card>
@@ -309,5 +261,3 @@ function Signup() {
     </div>
   );
 }
-
-export default Signup;

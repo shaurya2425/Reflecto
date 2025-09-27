@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../services/firebase";
-import { useAuth } from "../context/AuthContext";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/services/firebase";
+import { useAuth } from "@/context/AuthContext";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,21 +16,25 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, LogIn } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, LogIn } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 
-export default function Login({ onPageChange }) {
+export default function Login() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
 
-  const navigate=useNavigate()
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/home", { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleInputChange = (e) => {
     setFormData((prev) => ({
@@ -46,28 +51,12 @@ export default function Login({ onPageChange }) {
     try {
       await signInWithEmailAndPassword(auth, formData.email, formData.password);
       toast.success("Logged in successfully!");
-      navigate("/")
+      navigate("/home", { replace: true });
     } catch (err) {
       setError(err.message);
       toast.error("Login failed!");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handlePasswordReset = async () => {
-    if (!formData.email) {
-      setError("Please enter your email address first");
-      return;
-    }
-    setResetLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, formData.email);
-      toast.success("Password reset email sent!");
-    } catch {
-      toast.error("Failed to send reset email");
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -93,21 +82,21 @@ export default function Login({ onPageChange }) {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="w-full max-w-md relative z-10"
       >
-        <Card className="rounded-3xl border border-green-500/30 bg-black/30 backdrop-blur-lg shadow-xl">
+        <Card className="glass-card glow-green-hover transition-all duration-300 rounded-3xl border border-green-500/20 bg-[rgba(13,31,28,0.6)] text-white">
           <CardHeader className="text-center space-y-6 pb-8">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, duration: 0.5, type: "spring" }}
-              className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center shadow-lg"
+              className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center glow-green"
             >
               <LogIn className="w-8 h-8 text-white" />
             </motion.div>
 
             <div className="space-y-2">
-              <CardTitle className="text-2xl text-green-300">Welcome Back</CardTitle>
-              <CardDescription className="text-green-100/70">
-                Continue your mindful journey
+              <CardTitle className="text-2xl text-glow">Welcome Back</CardTitle>
+              <CardDescription className="text-green-100/80">
+                Continue your mindful journaling journey
               </CardDescription>
             </div>
           </CardHeader>
@@ -115,9 +104,11 @@ export default function Login({ onPageChange }) {
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <Alert className="border-red-500/50 bg-red-500/10">
-                  <AlertDescription className="text-red-200">{error}</AlertDescription>
-                </Alert>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                  <Alert className="border-red-500/50 bg-red-500/10">
+                    <AlertDescription className="text-red-200">{error}</AlertDescription>
+                  </Alert>
+                </motion.div>
               )}
 
               {/* Email */}
@@ -133,24 +124,14 @@ export default function Login({ onPageChange }) {
                     value={formData.email}
                     onChange={handleInputChange}
                     required
-                    className="pl-10 bg-black/40 border-green-500/30 focus:border-green-400 text-white placeholder:text-green-300/60 rounded-2xl h-12"
+                    className="pl-10 bg-black/20 border-green-500/30 focus:border-green-400 text-white placeholder:text-green-200/60 rounded-2xl h-12 focus:ring-green-400/50 transition-all duration-300"
                   />
                 </div>
               </div>
 
               {/* Password */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-green-100">Password</Label>
-                  <button
-                    type="button"
-                    onClick={handlePasswordReset}
-                    disabled={resetLoading}
-                    className="text-sm text-green-400 hover:text-green-300 disabled:opacity-50"
-                  >
-                    {resetLoading ? "Sending..." : "Forgot password?"}
-                  </button>
-                </div>
+                <Label htmlFor="password" className="text-green-100">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />
                   <Input
@@ -161,40 +142,40 @@ export default function Login({ onPageChange }) {
                     value={formData.password}
                     onChange={handleInputChange}
                     required
-                    className="pl-10 pr-10 bg-black/40 border-green-500/30 focus:border-green-400 text-white placeholder:text-green-300/60 rounded-2xl h-12"
+                    className="pl-10 pr-10 bg-black/20 border-green-500/30 focus:border-green-400 text-white placeholder:text-green-200/60 rounded-2xl h-12 focus:ring-green-400/50 transition-all duration-300"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 hover:text-green-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 hover:text-green-300 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
-              {/* Submit */}
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-400 hover:to-teal-400 text-white rounded-2xl h-12"
-              >
-                {loading ? "Signing In..." : "Sign In"}
-              </Button>
+              {/* Submit Button */}
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="pt-4">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-400 hover:to-teal-400 text-white rounded-2xl h-12 glow-green-hover transition-all duration-300 disabled:opacity-50"
+                >
+                  {loading ? "Signing In..." : "Sign In"}
+                </Button>
+              </motion.div>
             </form>
 
-            {/* Footer */}
             <div className="text-center space-y-4 pt-4">
               <p className="text-green-100/70">
                 Don’t have an account?{" "}
                 <button
                   onClick={() => navigate("/signup")}
-                  className="text-green-400 hover:text-green-300 underline"
+                  className="text-green-400 hover:text-green-300 underline transition-colors"
                 >
                   Create one
                 </button>
               </p>
-              
             </div>
           </CardContent>
         </Card>

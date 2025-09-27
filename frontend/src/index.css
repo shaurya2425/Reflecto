@@ -353,3 +353,19 @@
 html {
   font-size: var(--font-size);
 }
+
+/* Neon glow effect */
+.glow-neon {
+  text-shadow: 0 0 6px #0A84FF, 0 0 10px #0A84FF, 0 0 20px #0A84FF;
+  transition: text-shadow 0.3s ease-in-out;
+}
+
+/* Optional: animated pulse for active item */
+@keyframes neonPulse {
+  0%, 100% { text-shadow: 0 0 6px #0A84FF, 0 0 10px #0A84FF, 0 0 20px #0A84FF; }
+  50% { text-shadow: 0 0 10px #0A84FF, 0 0 20px #0A84FF, 0 0 30px #0A84FF; }
+}
+
+.glow-neon {
+  animation: neonPulse 1.5s infinite alternate;
+}
