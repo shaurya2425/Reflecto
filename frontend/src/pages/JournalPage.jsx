@@ -1,807 +1,451 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Progress } from '@/components/ui/progress';
-import { PenTool, Save, Clock, Smile, Meh, Frown, Tag, Lightbulb, Edit, Brain, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
-import { SentimentModal } from '@/components/SentimentModal';
-import { EntryAnalysisModal } from '@/components/EntryAnalysisModal';
-import { PostSubmissionCard } from '@/components/PostSubmissionCard';
+import React, { useState } from 'react';
+import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles } from 'lucide-react';
+
 
 export function JournalPage() {
-  const [currentEntry, setCurrentEntry] = useState({
-    title: '',
-    content: '',
-    mood: 5,
-    productivity: 50,
-    tags: [] ,
-  });
-  const [newTag, setNewTag] = useState('');
-  const [isDraftSaved, setIsDraftSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState('new');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [mood, setMood] = useState(5);
+  const [productivity, setProductivity] = useState(5);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
+
   const [selectedEntry, setSelectedEntry] = useState(null);
-  const [showSentimentModal, setShowSentimentModal] = useState(false);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [showPostSubmission, setShowPostSubmission] = useState(false);
-  const [guidedResponses, setGuidedResponses] = useState({});
-  const [openQuestions, setOpenQuestions] = useState([]);
+  const [showPastEntryModal, setShowPastEntryModal] = useState(false);
+  const [showPastEntryAnalyticsModal, setShowPastEntryAnalyticsModal] = useState(false);
 
-  // Guided reflection questions
-  const guidedQuestions = [
+  const pastEntries = [
     {
-      id: 'emotions',
-      prompt: 'What emotions did you experience today?',
-      placeholder: 'I felt... The strongest emotion was... This came up when...',
-      category: 'emotions',
-      icon: '💭'
-    },
-    {
-      id: 'productivity',
-      prompt: 'What did you accomplish that made you feel productive?',
-      placeholder: 'Today I completed... I felt productive when... I made progress on...',
-      category: 'productivity',
-      icon: '🎯'
-    },
-    {
-      id: 'joy',
-      prompt: 'What brought you joy or made you smile?',
-      placeholder: 'I smiled when... Something that brought me joy was... I felt happy because...',
-      category: 'joy',
-      icon: '😊'
-    },
-    {
-      id: 'learning',
-      prompt: 'What did you learn or discover today?',
-      placeholder: 'I learned that... I discovered... Something new I realized...',
-      category: 'learning',
-      icon: '📚'
-    },
-    {
-      id: 'challenges',
-      prompt: 'What challenged or upset you, and how did you handle it?',
-      placeholder: 'I was challenged by... I handled this by... Next time I might...',
-      category: 'challenges',
-      icon: '⚡'
-    }
-  ];
-
-  const getCategoryColor = (category) => {
-    switch (category) {
-      case 'emotions': return 'border-red-500/30 bg-red-500/5';
-      case 'productivity': return 'border-blue-500/30 bg-blue-500/5';
-      case 'joy': return 'border-yellow-500/30 bg-yellow-500/5';
-      case 'learning': return 'border-purple-500/30 bg-purple-500/5';
-      case 'challenges': return 'border-orange-500/30 bg-orange-500/5';
-      default: return 'border-green-500/30 bg-green-500/5';
-    }
-  };
-
-  // Mock journal entries with detailed sentiment data
-  const entries = [
-    {
-      id: 1,
-      title: "Morning Reflections",
-      content: "Started the day with meditation and felt really centered. The sunrise was beautiful and I'm grateful for these quiet moments. Sometimes I worry about work deadlines, but I'm learning to stay present.",
-      date: "2024-12-08",
-      time: "8:30 AM",
+      title: 'Refreshed and Productive',
+      date: 'October 26, 2025',
       mood: 8,
-      productivity: 70,
-      tags: ["meditation", "gratitude", "morning"],
-      sentiment: {
-        positive: 75,
-        neutral: 15,
-        negative: 10,
-        overall: 7.5,
-        keywords: ["meditation", "centered", "grateful", "beautiful", "peaceful"],
-        emotions: ["gratitude", "peace", "mindfulness", "contentment"],
-        reasons: {
-          positive: [
-            "Expressed gratitude for quiet moments",
-            "Described feeling centered and peaceful",
-            "Positive language about meditation practice"
-          ],
-          negative: [
-            "Mentioned worry about work deadlines"
-          ],
-          neutral: [
-            "Factual description of morning routine"
-          ]
-        }
-      }
+      productivity: 9,
+      description: 'Felt motivated today and got most of my work done ahead of time.',
     },
     {
-      id: 2,
-      title: "Challenging Day at Work",
-      content: "Had a difficult conversation with my manager today. Feeling a bit overwhelmed but trying to stay positive. I know I can learn from this experience and grow stronger.",
-      date: "2024-12-07",
-      time: "6:45 PM",
-      mood: 4,
-      productivity: 45,
-      tags: ["work", "stress", "growth"],
-      sentiment: {
-        positive: 25,
-        neutral: 35,
-        negative: 40,
-        overall: 4.2,
-        keywords: ["difficult", "overwhelming", "positive", "learn", "grow"],
-        emotions: ["stress", "determination", "resilience", "hope"],
-        reasons: {
-          positive: [
-            "Shows resilience and growth mindset",
-            "Attempting to stay positive despite challenges"
-          ],
-          negative: [
-            "Described conversation as difficult",
-            "Feeling overwhelmed by situation"
-          ],
-          neutral: [
-            "Factual description of work interaction"
-          ]
-        }
-      }
-    },
-    {
-      id: 3,
-      title: "Weekend Plans",
-      content: "Excited about the weekend! Planning to visit the art museum and try that new restaurant downtown. Looking forward to some quality time with friends.",
-      date: "2024-12-06",
-      time: "2:15 PM",
+      title: 'Calm Evening',
+      date: 'October 25, 2025',
       mood: 7,
-      productivity: 60,
-      tags: ["weekend", "art", "food", "friends"],
-      sentiment: {
-        positive: 85,
-        neutral: 15,
-        negative: 0,
-        overall: 8.2,
-        keywords: ["excited", "planning", "museum", "restaurant", "friends"],
-        emotions: ["excitement", "anticipation", "social connection", "joy"],
-        reasons: {
-          positive: [
-            "High energy and excitement about plans",
-            "Looking forward to social activities",
-            "Positive anticipation for cultural activities"
-          ],
-          negative: [],
-          neutral: [
-            "Factual planning details"
-          ]
-        }
-      }
+      productivity: 6,
+      description: 'Spent a peaceful day reading and reflecting. Low work but high contentment.',
+    },
+    {
+      title: 'Tough Day',
+      date: 'October 24, 2025',
+      mood: 4,
+      productivity: 5,
+      description: 'Felt tired and distracted. Trying to accept slow days as part of growth.',
+    },
+    {
+      title: 'Energetic Morning Routine',
+      date: 'October 23, 2025',
+      mood: 9,
+      productivity: 8,
+      description: 'Started the day with a jog and a healthy breakfast. Great mental clarity.',
     },
   ];
 
-  const moodEmojis = [
-    { value: 1, emoji: '😢', label: 'Very Sad' },
-    { value: 2, emoji: '😔', label: 'Sad' },
-    { value: 3, emoji: '😐', label: 'Meh' },
-    { value: 4, emoji: '🙂', label: 'Okay' },
-    { value: 5, emoji: '😊', label: 'Good' },
-    { value: 6, emoji: '😄', label: 'Happy' },
-    { value: 7, emoji: '😁', label: 'Very Happy' },
-    { value: 8, emoji: '🤩', label: 'Excited' },
-    { value: 9, emoji: '🥰', label: 'Blissful' },
-    { value: 10, emoji: '🌟', label: 'Amazing' },
-  ];
-
-  const suggestedTags = ['work', 'family', 'health', 'goals', 'creativity', 'stress', 'gratitude', 'learning'];
-
-  const aiPrompts = [
-    "What was the highlight of your day?",
-    "How are you feeling right now and why?",
-    "What are you grateful for today?",
-    "What challenge did you overcome recently?",
-    "Describe a moment that made you smile today.",
-  ];
-
-  const handleAddTag = () => {
-    if (newTag.trim() && !currentEntry.tags.includes(newTag.trim())) {
-      setCurrentEntry(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()]
-      }));
-      setNewTag('');
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    setCurrentEntry(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
-  const getCurrentMoodEmoji = () => {
-    const moodData = moodEmojis.find(m => m.value === Math.round(currentEntry.mood));
-    return moodData || moodEmojis[4];
-  };
-
-  const getSentimentIcon = (sentiment) => {
-    switch (sentiment) {
-      case 'positive': return <Smile className="w-4 h-4 text-green-400" />;
-      case 'negative': return <Frown className="w-4 h-4 text-red-400" />;
-      default: return <Meh className="w-4 h-4 text-yellow-400" />;
-    }
-  };
-
-  const simulateAutoSave = () => {
-    setIsDraftSaved(true);
-    setTimeout(() => setIsDraftSaved(false), 2000);
-  };
-
-  const handleEntryClick = (entry) => {
+  const handleViewPastEntry = (entry) => {
     setSelectedEntry(entry);
-    setShowSentimentModal(true);
+    setShowPastEntryModal(true);
   };
 
-  const handleEditEntry = (entry) => {
-    setEditingEntry(entry);
-    setCurrentEntry({
-      title: entry.title,
-      content: entry.content,
-      mood: entry.mood,
-      productivity: entry.productivity,
-      tags: entry.tags
-    });
+  const handleSave = () => {
+    if (title.trim() && description.trim()) setShowSuccessModal(true);
   };
 
-  const handleSaveEntry = () => {
-    // Combine free-form content with guided responses
-    let finalContent = currentEntry.content;
-    
-    if (Object.keys(guidedResponses).some(key => guidedResponses[key].trim())) {
-      const guidedContent = Object.entries(guidedResponses)
-        .filter(([_, response]) => response.trim())
-        .map(([questionId, response]) => {
-          const questionTitles = {
-            emotions: 'Emotions I Experienced',
-            productivity: 'What I Accomplished',
-            joy: 'Moments of Joy',
-            learning: 'What I Learned',
-            challenges: 'Challenges I Faced'
-          };
-          return `${questionTitles[questionId] || questionId}:\n${response}`;
-        })
-        .join('\n\n');
-      
-      if (finalContent && guidedContent) {
-        finalContent = `${finalContent}\n\n--- Guided Reflection ---\n\n${guidedContent}`;
-      } else if (guidedContent) {
-        finalContent = guidedContent;
-      }
-    }
+  const generateAnalysis = (mood, productivity) => {
+    const sentiment = mood >= 7 ? 'positive' : mood >= 4 ? 'neutral' : 'negative';
+    const polarityScore = (mood - 5) / 5;
 
-    // Create sentiment data (mock analysis)
-    const mockSentimentData = {
-      positive: Math.floor(Math.random() * 40) + 40, // 40-80%
-      neutral: Math.floor(Math.random() * 30) + 10,  // 10-40%
-      negative: Math.floor(Math.random() * 30) + 5,  // 5-35%
-      overall: currentEntry.mood,
-      keywords: ['reflection', 'growth', 'mindfulness', 'awareness', 'journey'],
-      emotions: ['contemplative', 'introspective', 'peaceful', 'thoughtful']
+    return {
+      sentiment,
+      polarity_score: polarityScore.toFixed(2),
+      emotional_summary: `You seem to be experiencing ${sentiment} emotions with a general sense of ${productivity >= 7 ? 'accomplishment' : productivity >= 4 ? 'balance' : 'low energy'}.`,
+      reflection: `Your mood of ${mood}/10 and productivity of ${productivity}/10 show you're reflecting consciously. Each day teaches something new—keep journaling your growth.`,
+      suggestions: [
+        'Write three things you are grateful for daily.',
+        'Set one small goal for tomorrow to stay consistent.',
+        'Take mindful breaks to reflect during the day.',
+      ],
     };
-    
-    // Adjust percentages to sum to 100
-    const total = mockSentimentData.positive + mockSentimentData.neutral + mockSentimentData.negative;
-    if (total !== 100) {
-      const diff = 100 - total;
-      mockSentimentData.positive += diff;
-    }
-
-    console.log('Saving entry:', { ...currentEntry, content: finalContent });
-    
-    // Show post-submission card with mock data
-    setSelectedEntry({
-      ...currentEntry,
-      id: Date.now(),
-      content: finalContent,
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      sentiment: {
-        ...mockSentimentData,
-        reasons: {
-          positive: ['Shows self-reflection and mindfulness'],
-          negative: ['Some areas of concern noted'],
-          neutral: ['Factual observations recorded']
-        }
-      }
-    });
-    setShowPostSubmission(true);
-    
-    // Reset form after successful save
-    setCurrentEntry({
-      title: '',
-      content: '',
-      mood: 5,
-      productivity: 50,
-      tags: [],
-    });
-    setGuidedResponses({});
-    setOpenQuestions([]);
   };
 
-  const handleViewFullAnalysis = () => {
-    setShowPostSubmission(false);
-    setShowAnalysisModal(true);
+  const handleViewAnalytics = () => {
+    const data = generateAnalysis(mood, productivity);
+    setAnalyticsData(data);
+    setShowSuccessModal(false);
+    setShowAnalyticsModal(true);
   };
 
-  const toggleQuestion = (questionId) => {
-    setOpenQuestions(prev => 
-      prev.includes(questionId) 
-        ? prev.filter(id => id !== questionId)
-        : [...prev, questionId]
-    );
+  const handleViewPastEntryAnalytics = () => {
+    const data = generateAnalysis(selectedEntry.mood, selectedEntry.productivity);
+    setAnalyticsData(data);
+    setShowPastEntryAnalyticsModal(true);
   };
 
-  const handleGuidedResponseChange = (questionId, response) => {
-    setGuidedResponses(prev => ({ ...prev, [questionId]: response }));
+  const handleReset = () => {
+    setTitle('');
+    setDescription('');
+    setMood(5);
+    setProductivity(5);
+    setShowSuccessModal(false);
+    setShowAnalyticsModal(false);
+    setShowPastEntryModal(false);
+    setShowPastEntryAnalyticsModal(false);
   };
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen p-6 md:p-8">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Journal</h1>
-          <p className="text-gray-400">Express yourself freely and track your thoughts</p>
+        <div className="text-center mb-8">
+          <h1 className="text-white mb-2">My Journal</h1>
+          <p className="text-gray-400">Track your thoughts, moods, and productivity</p>
         </div>
 
-        <Tabs defaultValue="new-entry" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-green-500/10 border border-green-500/20">
-            <TabsTrigger 
-              value="new-entry" 
-              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-gray-300"
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6">
+          {['new', 'past'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="flex-1 py-3 px-6 rounded-2xl transition-all backdrop-blur-sm"
+              style={{
+                background: activeTab === tab ? 'linear-gradient(135deg, #22C55E, #0F766E)' : 'rgba(13,31,28,0.4)',
+                color: activeTab === tab ? '#0D1F1C' : '#E5E7EB',
+                border: activeTab === tab ? 'none' : '1px solid rgba(34,197,94,0.3)',
+                boxShadow: activeTab === tab ? '0 0 20px rgba(34,197,94,0.4)' : 'none',
+                fontWeight: '600',
+              }}
             >
-              New Entry
-            </TabsTrigger>
-            <TabsTrigger 
-              value="past-entries"
-              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400 text-gray-300"
-            >
-              Past Entries
-            </TabsTrigger>
-          </TabsList>
+              {tab === 'new' ? (
+                <>
+                  <BookOpen className="inline mr-2" size={20} /> New Entry
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="inline mr-2" size={20} /> Past Entries
+                </>
+              )}
+            </button>
+          ))}
+        </div>
 
-          <TabsContent value="new-entry">
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Journal Composer */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Your Thoughts Section */}
-                <Card className="bg-[#0D1F1C] glass-card">
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center space-x-2">
-                      <PenTool className="w-5 h-5 text-green-400" />
-                      <span>Your Thoughts</span>
-                    </CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Write freely about your day, thoughts, or feelings
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Title Input */}
-                    <div>
-                      <label className="text-sm text-gray-300 mb-2 block">Title</label>
-                      <Input
-                        placeholder="Give your entry a title..."
-                        value={currentEntry.title}
-                        onChange={(e) => setCurrentEntry(prev => ({ ...prev, title: e.target.value }))}
-                        className="glass border-green-500/30 focus:border-green-400 text-white placeholder-gray-500"
-                        onInput={simulateAutoSave}
-                      />
-                    </div>
+        {/* New Entry */}
+        {activeTab === 'new' && (
+          <div
+            className="rounded-2xl p-6 md:p-8 backdrop-blur-lg"
+            style={{
+              background: 'rgba(13, 31, 28, 0.6)',
+              border: '1px solid rgba(34,197,94,0.2)',
+              boxShadow: '0 0 30px rgba(34,197,94,0.15)',
+            }}
+          >
+            {/* Title */}
+            <div className="mb-6">
+              <h2 className="text-white mb-3">Journal Title</h2>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Give your entry a title..."
+                className="w-full px-4 py-3 rounded-xl backdrop-blur-sm focus:outline-none transition-all"
+                style={{
+                  background: 'rgba(13,31,28,0.8)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  color: '#FFFFFF',
+                  caretColor: '#22C55E',
+                }}
+              />
+            </div>
 
-                    {/* Free-form Content */}
-                    <div>
-                      <label className="text-sm text-gray-300 mb-2 block">Your thoughts</label>
-                      <Textarea
-                        placeholder="Write freely about your day, feelings, or experiences..."
-                        value={currentEntry.content}
-                        onChange={(e) => setCurrentEntry(prev => ({ ...prev, content: e.target.value }))}
-                        className="glass border-green-500/30 focus:border-green-400 text-white placeholder-gray-500 min-h-[200px] resize-none"
-                        onInput={simulateAutoSave}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Description */}
+            <div className="mb-6">
+              <h2 className="text-white mb-3">Description of the Day</h2>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="How was your day? What happened? How do you feel?"
+                rows={8}
+                className="w-full px-4 py-3 rounded-xl backdrop-blur-sm focus:outline-none resize-none transition-all"
+                style={{
+                  background: 'rgba(13,31,28,0.8)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  color: '#FFFFFF',
+                  caretColor: '#22C55E',
+                }}
+              />
+            </div>
 
-                {/* Guided Reflection Questions */}
-                <Card className="bg-[#0D1F1C] glass-card">
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center space-x-2">
-                      <Lightbulb className="w-5 h-5 text-green-400" />
-                      <span>Guided Reflection (Optional)</span>
-                    </CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Answer any questions that resonate with you today
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {guidedQuestions.map((question) => {
-                      const isOpen = openQuestions.includes(question.id);
-                      const hasResponse = guidedResponses[question.id]?.trim().length > 0;
-
-                      return (
-                        <Collapsible
-                          key={question.id}
-                          open={isOpen}
-                          onOpenChange={() => toggleQuestion(question.id)}
-                        >
-                          <CollapsibleTrigger asChild>
-                            <Card className={`cursor-pointer transition-all duration-200 mb-3 border ${getCategoryColor(question.category)} hover:scale-[1.01]`}>
-                              <CardHeader className="py-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-xs">
-                                      {question.icon}
-                                    </div>
-                                    <span className="text-white text-sm font-medium">{question.prompt}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    {hasResponse && (
-                                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                                    )}
-                                    {isOpen ? (
-                                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                                    ) : (
-                                      <ChevronRight className="w-4 h-4 text-gray-400" />
-                                    )}
-                                  </div>
-                                </div>
-                              </CardHeader>
-                            </Card>
-                          </CollapsibleTrigger>
-
-                          <CollapsibleContent className="mb-4">
-                            <div className="ml-8">
-                              <Textarea
-                                placeholder={question.placeholder}
-                                value={guidedResponses[question.id] || ''}
-                                onChange={(e) => handleGuidedResponseChange(question.id, e.target.value)}
-                                className="glass border-green-500/30 focus:border-green-400 text-white placeholder-gray-500 min-h-[100px] resize-none"
-                              />
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-
-                {/* Mood and Tags Section */}
-                <Card className="bg-[#0D1F1C] glass-card">
-                  <CardHeader>
-                    <CardTitle className="text-white">Mood & Tags</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-
-                {/* Mood Picker */}
-                <div>
-                  <label className="text-sm text-gray-300 mb-4 block">Current Mood</label>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-3xl">{getCurrentMoodEmoji().emoji}</div>
-                    <div className="flex-1">
-                      <Slider
-                        value={[currentEntry.mood]}
-                        onValueChange={(value) => setCurrentEntry(prev => ({ ...prev, mood: value[0] }))}
-                        max={10}
-                        min={1}
-                        step={1}
-                        className="w-full"
-                      />
-                    </div>
-                    <span className="text-sm text-gray-400 min-w-[80px]">
-                      {getCurrentMoodEmoji().label}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Productivity Slider */}
-                <div>
-                  <label className="text-sm text-gray-300 mb-4 block">Productivity Level</label>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm text-gray-400">0%</span>
-                    <Slider
-                      value={[currentEntry.productivity]}
-                      onValueChange={(value) => setCurrentEntry(prev => ({ ...prev, productivity: value[0] }))}
-                      max={100}
-                      min={0}
-                      step={5}
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-400">100%</span>
-                    <span className="text-sm text-green-400 min-w-[40px]">
-                      {currentEntry.productivity}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label className="text-sm text-gray-300 mb-2 block">Tags</label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {currentEntry.tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        className="bg-green-500/20 text-green-400 border-green-500/30 cursor-pointer hover:bg-green-500/30"
-                        onClick={() => removeTag(tag)}
-                      >
-                        {tag} ×
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex space-x-2">
-                    <Input
-                      placeholder="Add a tag..."
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                      className="glass border-green-500/30 focus:border-green-400 text-white placeholder-gray-500"
-                    />
-                    <Button
-                      onClick={handleAddTag}
-                      variant="outline"
-                      className="border-green-500/30 text-green-400 hover:bg-green-500/10"
-                    >
-                      <Tag className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {suggestedTags.filter(tag => !currentEntry.tags.includes(tag)).slice(0, 4).map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => setCurrentEntry(prev => ({ ...prev, tags: [...prev.tags, tag] }))}
-                        className="text-xs px-2 py-1 rounded-full bg-gray-700/50 text-gray-400 hover:bg-green-500/20 hover:text-green-400 transition-colors"
-                      >
-                        + {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                    {/* Actions */}
-                    <div className="flex justify-between items-center pt-4">
-                      <div className="flex items-center space-x-2 text-sm">
-                        {isDraftSaved && (
-                          <div className="flex items-center space-x-1 text-green-400">
-                            <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                            <span>Draft saved</span>
-                          </div>
-                        )}
-                      </div>
-                      <Button 
-                        onClick={handleSaveEntry}
-                        className="bg-orange-500 hover:bg-orange-600 text-white glow-orange-hover"
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Entry
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Mood */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-white">Mood Level</h2>
+                <span className="text-green-400 font-bold text-xl">{mood}/10</span>
               </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={mood}
+                onChange={(e) => setMood(parseInt(e.target.value))}
+                className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-mood"
+                style={{
+                  background: `linear-gradient(to right, #22C55E ${(mood - 1) * 11.11}%, rgba(255,255,255,0.1) ${(mood - 1) * 11.11}%)`,
+                }}
+              />
+              <div className="flex justify-between mt-2 text-gray-400 text-sm">
+                <span>😔 Low</span>
+                <span>😊 High</span>
+              </div>
+            </div>
 
-              {/* Sidebar */}
-              <div className="space-y-6">
-            {/* AI Prompts */}
-            <Card className="bg-[#0D1F1C] glass-card">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center space-x-2">
-                  <Lightbulb className="w-5 h-5 text-green-400" />
-                  <span>Writing Prompts</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {aiPrompts.slice(0, 3).map((prompt, index) => (
+            {/* Productivity */}
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-white">Productivity Level</h2>
+                <span className="text-teal-400 font-bold text-xl">{productivity}/10</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={productivity}
+                onChange={(e) => setProductivity(parseInt(e.target.value))}
+                className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-productivity"
+                style={{
+                  background: `linear-gradient(to right, #0F766E ${(productivity - 1) * 11.11}%, rgba(255,255,255,0.1) ${(productivity - 1) * 11.11}%)`,
+                }}
+              />
+              <div className="flex justify-between mt-2 text-gray-400 text-sm">
+                <span>📉 Low</span>
+                <span>📈 High</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleSave}
+                disabled={!title.trim() || !description.trim()}
+                className="py-3 px-8 rounded-xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                style={{
+                  background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                  color: '#fff',
+                  boxShadow: '0 0 25px rgba(249,115,22,0.4)',
+                  fontWeight: '600',
+                }}
+              >
+                Save Journal Entry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Past Entries */}
+        {activeTab === 'past' && (
+          <div
+            className="rounded-2xl p-6 md:p-8 backdrop-blur-lg"
+            style={{
+              background: 'rgba(13, 31, 28, 0.6)',
+              border: '1px solid rgba(34,197,94,0.2)',
+              boxShadow: '0 0 30px rgba(34,197,94,0.15)',
+            }}
+          >
+            <h2 className="text-white mb-6 text-xl font-semibold">Your Past Entries</h2>
+
+            <div className="grid gap-4">
+              {pastEntries.map((entry, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl p-5 relative backdrop-blur-sm transition-all hover:scale-[1.01]"
+                  style={{
+                    background: 'rgba(13, 31, 28, 0.8)',
+                    border: '1px solid rgba(34, 197, 94, 0.25)',
+                    boxShadow: '0 0 15px rgba(34, 197, 94, 0.1)',
+                  }}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="text-green-400 font-semibold text-lg">{entry.title}</h3>
+                      <span className="text-gray-400 text-sm">{entry.date}</span>
+                    </div>
                     <button
-                      key={index}
-                      onClick={() => setCurrentEntry(prev => ({ ...prev, content: prompt + ' ' }))}
-                      className="w-full text-left p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-sm text-gray-300 hover:text-green-400 transition-colors border border-green-500/20"
+                      onClick={() => handleViewPastEntry(entry)}
+                      className="text-xs px-3 py-1 rounded-lg transition-all"
+                      style={{
+                        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                        color: '#fff',
+                        fontWeight: 600,
+                        boxShadow: '0 0 10px rgba(249,115,22,0.4)',
+                      }}
                     >
-                      {prompt}
+                      View
                     </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
 
-            {/* Quick Stats */}
-            <Card className="bg-[#0D1F1C] glass-card">
-              <CardHeader>
-                <CardTitle className="text-white">This Week</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Entries</span>
-                    <span className="text-white">5</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Avg Mood</span>
-                    <span className="text-green-400">7.2/10</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Streak</span>
-                    <span className="text-green-400">12 days</span>
+                  <p className="text-gray-300 mb-3 line-clamp-2">{entry.description}</p>
+
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>😊 Mood: <b className="text-green-400">{entry.mood}/10</b></span>
+                    <span>💼 Productivity: <b className="text-teal-400">{entry.productivity}/10</b></span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Past Entry Modal */}
+        {showPastEntryModal && selectedEntry && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-[120] p-4 overflow-y-auto"
+            style={{
+              background: 'rgba(13,31,28,0.9)',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <div
+              className="rounded-2xl p-8 max-w-xl w-full relative"
+              style={{
+                background: 'rgba(13,31,28,0.95)',
+                border: '1px solid rgba(34,197,94,0.3)',
+                boxShadow: '0 0 40px rgba(34,197,94,0.3)',
+              }}
+            >
+              <h3 className="text-green-400 font-bold text-2xl mb-3">{selectedEntry.title}</h3>
+              <p className="text-gray-400 mb-5">{selectedEntry.date}</p>
+              <p className="text-gray-200 mb-6 whitespace-pre-wrap">{selectedEntry.description}</p>
+
+              <div className="flex justify-between text-gray-400 mb-8">
+                <span>😊 Mood: <b className="text-green-400">{selectedEntry.mood}/10</b></span>
+                <span>💼 Productivity: <b className="text-teal-400">{selectedEntry.productivity}/10</b></span>
+              </div>
+
+              <div className="flex justify-between">
+                <button
+                  onClick={() => setShowPastEntryModal(false)}
+                  className="py-3 px-8 rounded-xl"
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    border: '1px solid rgba(34,197,94,0.3)',
+                  }}
+                >
+                  Close
+                </button>
+
+                <button
+                  onClick={handleViewPastEntryAnalytics}
+                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    color: '#fff',
+                    boxShadow: '0 0 20px rgba(249,115,22,0.4)',
+                    fontWeight: '600',
+                  }}
+                >
+                  <BarChart3 className="inline mr-2" size={20} />
+                  View Analysis
+                </button>
               </div>
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-
-
-          <TabsContent value="past-entries">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">Your Journal Entries</h2>
-                <p className="text-gray-400">Click any entry to view detailed sentiment analysis</p>
+        {/* Past Entry Analytics Modal */}
+        {showPastEntryAnalyticsModal && analyticsData && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-[130] p-4 overflow-y-auto"
+            style={{
+              background: 'rgba(13,31,28,0.9)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <div
+              className="rounded-2xl p-8 max-w-2xl w-full my-8 relative"
+              style={{
+                background: 'rgba(13,31,28,0.95)',
+                border: '1px solid rgba(34,197,94,0.3)',
+                boxShadow: '0 0 40px rgba(34,197,94,0.3)',
+              }}
+            >
+              <div className="flex items-center justify-center mb-6">
+                <Sparkles className="mr-3" size={28} style={{ color: '#22C55E' }} />
+                <h3 className="text-white font-bold text-2xl">Journal Analytics</h3>
+                <Sparkles className="ml-3" size={28} style={{ color: '#22C55E' }} />
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {entries.map((entry) => (
-                  <Card 
-                    key={entry.id} 
-                    className="bg-[#0D1F1C] glass-card transition-all duration-300 group cursor-pointer hover:glow-green-hover"
-                    onClick={() => {
-                      setSelectedEntry(entry);
-                      setShowAnalysisModal(true);
-                    }}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-white text-lg">{entry.title}</CardTitle>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Clock className="w-3 h-3 text-gray-400" />
-                            <span className="text-xs text-gray-400">{entry.date} • {entry.time}</span>
-                          </div>
-                        </div>
-                        <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditEntry(entry);
-                            }}
-                            className="text-blue-400 hover:text-blue-300 p-1"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEntry(entry);
-                              setShowAnalysisModal(true);
-                            }}
-                            className="text-green-400 hover:text-green-300 p-1"
-                          >
-                            <BarChart3 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-gray-300 text-sm mb-4 line-clamp-3">
-                        {entry.content}
-                      </p>
-                      
-                      {/* Inline Sentiment Preview */}
-                      <div className="space-y-3 bg-green-500/5 border border-green-500/20 rounded-lg p-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center space-x-2">
-                            <Brain className="w-4 h-4 text-green-400" />
-                            <span className="text-gray-400">Sentiment</span>
-                          </div>
-                          <span className="text-green-400 font-semibold">{entry.sentiment.overall}/10</span>
-                        </div>
-                        
-                        <div className="flex space-x-1">
-                          <div className="flex-1 bg-green-500/20 rounded-full h-1.5 overflow-hidden">
-                            <div 
-                              className="bg-green-500 h-full transition-all duration-300"
-                              style={{ width: `${entry.sentiment.positive}%` }}
-                            />
-                          </div>
-                          <div className="flex-1 bg-yellow-500/20 rounded-full h-1.5 overflow-hidden">
-                            <div 
-                              className="bg-yellow-500 h-full transition-all duration-300"
-                              style={{ width: `${entry.sentiment.neutral}%` }}
-                            />
-                          </div>
-                          <div className="flex-1 bg-red-500/20 rounded-full h-1.5 overflow-hidden">
-                            <div 
-                              className="bg-red-500 h-full transition-all duration-300"
-                              style={{ width: `${entry.sentiment.negative}%` }}
-                            />
-                          </div>
-                        </div>
 
-                        <div className="flex flex-wrap gap-1">
-                          {entry.sentiment.keywords.slice(0, 3).map((keyword, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/20"
-                            >
-                              {keyword}
-                            </Badge>
-                          ))}
-                          {entry.sentiment.keywords.length > 3 && (
-                            <Badge variant="secondary" className="text-xs bg-gray-700 text-gray-400">
-                              +{entry.sentiment.keywords.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+              <div className="text-gray-300 space-y-6">
+                <div>
+                  <h4 className="text-green-400 font-semibold text-lg mb-2">Sentiment Analysis</h4>
+                  <p><b>Sentiment:</b> {analyticsData.sentiment}</p>
+                  <p><b>Polarity Score:</b> {analyticsData.polarity_score}</p>
+                </div>
 
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex flex-wrap gap-1">
-                          {entry.tags.slice(0, 2).map((tag, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs bg-green-500/10 text-green-400 border-green-500/20"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {entry.tags.length > 2 && (
-                            <Badge variant="secondary" className="text-xs bg-gray-700 text-gray-400">
-                              +{entry.tags.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xl">
-                            {moodEmojis.find(m => m.value === entry.mood)?.emoji}
-                          </span>
-                          <span className="text-xs text-gray-400">{entry.mood}/10</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                <div>
+                  <h4 className="text-teal-400 font-semibold text-lg mb-2">🩵 Emotional Summary</h4>
+                  <p>{analyticsData.emotional_summary}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-green-400 font-semibold text-lg mb-2">💬 Reflection</h4>
+                  <p>{analyticsData.reflection}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-green-400 font-semibold text-lg mb-2">🌱 Suggestions</h4>
+                  <ol className="list-decimal ml-5 space-y-2">
+                    {analyticsData.suggestions.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={handleReset}
+                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    color: '#fff',
+                    boxShadow: '0 0 25px rgba(249,115,22,0.4)',
+                    fontWeight: '600',
+                  }}
+                >
+                  Close
+                </button>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
-
+          </div>
+        )}
       </div>
 
-      {/* Post Submission Card */}
-      {selectedEntry && (
-        <PostSubmissionCard
-          isVisible={showPostSubmission}
-          onClose={() => setShowPostSubmission(false)}
-          onViewFullAnalysis={handleViewFullAnalysis}
-          sentimentData={selectedEntry.sentiment}
-          entryTitle={selectedEntry.title || 'New Entry'}
-        />
-      )}
+      {/* Slider Styling */}
+      <style>{`
+        .slider-mood::-webkit-slider-thumb,
+        .slider-productivity::-webkit-slider-thumb {
+          appearance: none;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 2px solid #fff;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
 
-      {/* Full Analysis Modal */}
-      <EntryAnalysisModal
-        isOpen={showAnalysisModal}
-        onClose={() => setShowAnalysisModal(false)}
-        entry={selectedEntry}
-      />
+        .slider-mood::-webkit-slider-thumb {
+          background: linear-gradient(135deg, #22C55E, #0F766E);
+          box-shadow: 0 0 12px rgba(34,197,94,0.6);
+        }
 
-      {/* Sentiment Analysis Modal */}
-      <SentimentModal
-        isOpen={showSentimentModal}
-        onClose={() => setShowSentimentModal(false)}
-        entry={selectedEntry}
-      />
+        .slider-productivity::-webkit-slider-thumb {
+          background: linear-gradient(135deg, #0F766E, #22C55E);
+          box-shadow: 0 0 12px rgba(15,118,110,0.6);
+        }
+      `}</style>
     </div>
   );
 }
