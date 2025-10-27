@@ -32,3 +32,6 @@ export const AuthProvider = ({ children }) => {
 
 // ✅ custom hook banaya
 export const useAuth = () => useContext(AuthContext);
+
+//const {user} = useAuth();
+//user.uid

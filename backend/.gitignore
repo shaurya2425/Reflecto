@@ -1,4 +1,35 @@
-node_modules
+# Virtual Environment
+venv/
 .env
+ENV/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.Python
+*.so
+
+# Environment & Secrets
+.env
+firebase-credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
 .DS_Store
-reflecto-946d5-firebase-adminsdk-fbsvc-58dc33828d.json
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test
+.pytest_cache/
+
+
+firebase_secret.json
