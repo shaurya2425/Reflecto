@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles, X, Trash2, Edit } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { serverUrl } from '@/lib/utils.js';
+import { set } from 'date-fns';
 
 export function JournalPage() {
   const [activeTab, setActiveTab] = useState('new');
@@ -16,48 +19,77 @@ export function JournalPage() {
   const [showPastEntryAnalyticsModal, setShowPastEntryAnalyticsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
-  const [entries, setEntries] = useState([
-    {
-      id: 1,
-      title: 'Refreshed and Productive',
-      date: 'October 26, 2025',
-      mood: 8,
-      productivity: 9,
-      description: 'Felt motivated today and got most of my work done ahead of time.',
-    },
-    {
-      id: 2,
-      title: 'Calm Evening',
-      date: 'October 25, 2025',
-      mood: 7,
-      productivity: 6,
-      description: 'Spent a peaceful day reading and reflecting. Low work but high contentment.',
-    },
-    {
-      id: 3,
-      title: 'Tough Day',
-      date: 'October 24, 2025',
-      mood: 4,
-      productivity: 5,
-      description: 'Felt tired and distracted. Trying to accept slow days as part of growth.',
-    },
-    {
-      id: 4,
-      title: 'Energetic Morning Routine',
-      date: 'October 23, 2025',
-      mood: 9,
-      productivity: 8,
-      description: 'Started the day with a jog and a healthy breakfast. Great mental clarity.',
-    },
-  ]);
+  const [entries, setEntries] = useState([]);
+  const [refresh,setRefresh] = useState(0);
+
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const url = serverUrl.BASE_URL + 'api/journals/' + encodeURIComponent(user.uid);
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Failed to fetch journal entries');
+        }
+        const data = await response.json();
+        setEntries(data);
+        console.log(data);
+      } catch (error) {
+        console.error('Error fetching journal entries:', error);
+      }
+    }
+    fetchData();
+  }, [user,refresh]);
 
   const handleViewPastEntry = (entry) => {
     setSelectedEntry(entry);
     setShowPastEntryModal(true);
   };
 
-  const handleSave = () => {
-    if (title.trim() && description.trim()) setShowSuccessModal(true);
+  const handleSave = async () => {
+    try {
+      // ✅ Validation (return if missing title or description)
+      if (!title.trim() || !description.trim()) {
+        alert("Please fill in all fields before saving.");
+        return;
+      }
+
+      const url = serverUrl.BASE_URL + "api/journals/";
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_uid: user.uid,
+          title,
+          description,
+          mood,
+          productivity,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save journal entry");
+      }
+      setRefresh(refresh+1);
+      
+      // ✅ Optional: parse returned data
+      const data = await response.json();
+      console.log("Journal saved:", data);
+
+      // ✅ Show success modal and reset fields
+      setShowSuccessModal(true);
+      setTitle("");
+      setDescription("");
+      setMood(5);
+      setProductivity(5);
+    } catch (error) {
+      console.error("Error saving journal:", error);
+      alert("Something went wrong while saving your journal.");
+    }
   };
 
   const handleContinueWriting = () => {
@@ -367,14 +399,14 @@ export function JournalPage() {
 
         {/* Success Modal */}
         {showSuccessModal && (
-          <div 
+          <div
             className="fixed inset-0 flex items-center justify-center z-[100] p-4"
             style={{
               background: 'linear-gradient(135deg, rgba(11, 18, 16, 0.95) 0%, rgba(16, 28, 24, 0.95) 100%)',
               backdropFilter: 'blur(10px)'
             }}
           >
-            <div 
+            <div
               className="rounded-2xl p-8 max-w-md w-full backdrop-blur-xl relative"
               style={{
                 background: 'rgba(13, 31, 28, 0.95)',
@@ -405,7 +437,7 @@ export function JournalPage() {
                 </h3>
                 <p className="text-gray-400">Your entry has been saved</p>
               </div>
-              
+
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleContinueWriting}

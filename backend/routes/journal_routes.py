@@ -6,6 +6,8 @@ from datetime import datetime
 from google.cloud import firestore
 from google.oauth2 import service_account
 import os
+from DataEngine.crud_journal import get_all_journals, create_journal, update_journal, get_journal_by_id, delete_journal
+
 
 router = APIRouter()
 
@@ -28,14 +30,14 @@ class JournalCreate(BaseModel):
 
 # ✅ Create Journal Entry
 @router.post("/", summary="Create a new journal entry")
-async def create_journal(entry: JournalCreate):
+async def create_journal_entry(entry: JournalCreate):
     try:
-        data = entry.dict()
-        data["created_at"] = datetime.utcnow()
-        doc_ref = journals_ref.document()
-        data["id"] = doc_ref.id
-        doc_ref.set(data)
-        return {"success": True, "message": "Journal entry added", "id": doc_ref.id}
+        print(entry.user_uid)
+        result = create_journal(entry)
+        return result
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -43,10 +45,11 @@ async def create_journal(entry: JournalCreate):
 @router.get("/{user_uid}", summary="Get all journals for a user")
 async def get_user_journals(user_uid: str):
     try:
-        query = journals_ref.where("user_uid", "==", user_uid).order_by("created_at", direction=firestore.Query.DESCENDING)
-        docs = query.stream()
-        journals = [doc.to_dict() for doc in docs]
-        return {"count": len(journals), "journals": journals}
+        result = get_all_journals(user_uid)
+        print(len(result))
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

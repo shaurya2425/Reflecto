@@ -8,6 +8,7 @@ JOURNAL_COLLECTION = "journals"
 
 # ✅ CREATE Journal
 def create_journal(journal_data: Journal):
+    print(journal_data.user_uid)
     sentiment_result = analyze_sentiment(journal_data.description)
     sentiment = sentiment_result["sentiment"]
 
@@ -22,13 +23,18 @@ def create_journal(journal_data: Journal):
 
 # ✅ READ All Journals for a User
 def get_all_journals(user_id: str):
-    docs = db.collection(JOURNAL_COLLECTION).where("user_id", "==", user_id).stream()
+    print(user_id)
+    # ✅ Use positional arguments instead of filter=
+    docs = db.collection(JOURNAL_COLLECTION).where("user_uid", "==", user_id).stream()
+
     journals = []
     for doc in docs:
         journal = doc.to_dict()
         journal["id"] = doc.id
         journals.append(journal)
     return journals
+
+
 
 # ✅ READ Journal by ID
 def get_journal_by_id(journal_id: str):
