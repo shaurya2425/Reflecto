@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles } from 'lucide-react';
-
+import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles, X } from 'lucide-react';
 
 export function JournalPage() {
   const [activeTab, setActiveTab] = useState('new');
@@ -56,6 +55,14 @@ export function JournalPage() {
     if (title.trim() && description.trim()) setShowSuccessModal(true);
   };
 
+  const handleContinueWriting = () => {
+    setTitle('');
+    setDescription('');
+    setMood(5);
+    setProductivity(5);
+    setShowSuccessModal(false);
+  };
+
   const generateAnalysis = (mood, productivity) => {
     const sentiment = mood >= 7 ? 'positive' : mood >= 4 ? 'neutral' : 'negative';
     const polarityScore = (mood - 5) / 5;
@@ -98,11 +105,11 @@ export function JournalPage() {
   };
 
   return (
-    <div className="min-h-screen p-6 md:p-8">
+    <div className="min-h-screen p-6 md:p-8" style={{ background: 'linear-gradient(135deg, #0B1210 0%, #101C18 100%)' }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-white mb-2">My Journal</h1>
+          <h1 className="text-white mb-2 text-3xl font-bold">My Journal</h1>
           <p className="text-gray-400">Track your thoughts, moods, and productivity</p>
         </div>
 
@@ -146,7 +153,7 @@ export function JournalPage() {
           >
             {/* Title */}
             <div className="mb-6">
-              <h2 className="text-white mb-3">Journal Title</h2>
+              <h2 className="text-white mb-3 text-xl font-semibold">Journal Title</h2>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -163,7 +170,7 @@ export function JournalPage() {
 
             {/* Description */}
             <div className="mb-6">
-              <h2 className="text-white mb-3">Description of the Day</h2>
+              <h2 className="text-white mb-3 text-xl font-semibold">Description of the Day</h2>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -182,7 +189,7 @@ export function JournalPage() {
             {/* Mood */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-white">Mood Level</h2>
+                <h2 className="text-white text-xl font-semibold">Mood Level</h2>
                 <span className="text-green-400 font-bold text-xl">{mood}/10</span>
               </div>
               <input
@@ -205,7 +212,7 @@ export function JournalPage() {
             {/* Productivity */}
             <div className="mb-8">
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-white">Productivity Level</h2>
+                <h2 className="text-white text-xl font-semibold">Productivity Level</h2>
                 <span className="text-teal-400 font-bold text-xl">{productivity}/10</span>
               </div>
               <input
@@ -273,7 +280,7 @@ export function JournalPage() {
                     </div>
                     <button
                       onClick={() => handleViewPastEntry(entry)}
-                      className="text-xs px-3 py-1 rounded-lg transition-all"
+                      className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
                       style={{
                         background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
                         color: '#fff',
@@ -293,6 +300,146 @@ export function JournalPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div 
+            className="fixed inset-0 flex items-center justify-center z-[100] p-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(11, 18, 16, 0.95) 0%, rgba(16, 28, 24, 0.95) 100%)',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            <div 
+              className="rounded-2xl p-8 max-w-md w-full backdrop-blur-xl relative"
+              style={{
+                background: 'rgba(13, 31, 28, 0.95)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                boxShadow: '0 0 40px rgba(34, 197, 94, 0.3)'
+              }}
+            >
+              {/* Close Button */}
+              <button
+                onClick={handleContinueWriting}
+                className="absolute top-4 right-4 p-1.5 rounded-lg transition-all hover:bg-green-500/20"
+                style={{
+                  color: '#9CA3AF'
+                }}
+              >
+                <X size={18} />
+              </button>
+
+              <div className="text-center mb-6 mt-2">
+                <div className="mx-auto mb-4 inline-block" style={{
+                  color: '#22C55E',
+                  filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))'
+                }}>
+                  <CheckCircle size={64} />
+                </div>
+                <h3 className="text-white mb-2" style={{ fontWeight: '700', fontSize: '1.5rem' }}>
+                  Journal Created Successfully!
+                </h3>
+                <p className="text-gray-400">Your entry has been saved</p>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleContinueWriting}
+                  className="w-full py-3 rounded-xl transition-all backdrop-blur-sm hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #22C55E 0%, #0F766E 100%)',
+                    color: '#0D1F1C',
+                    boxShadow: '0 0 20px rgba(34, 197, 94, 0.4)',
+                    fontWeight: '600'
+                  }}
+                >
+                  Continue Writing
+                </button>
+                <button
+                  onClick={handleViewAnalytics}
+                  className="w-full py-3 rounded-xl transition-all hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    color: '#FFFFFF',
+                    boxShadow: '0 0 20px rgba(249, 115, 22, 0.4)',
+                    fontWeight: '600'
+                  }}
+                >
+                  <BarChart3 className="inline mr-2" size={20} />
+                  See Full Analytics
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics Modal */}
+        {showAnalyticsModal && analyticsData && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-[110] p-4 overflow-y-auto"
+            style={{
+              background: 'rgba(13,31,28,0.9)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <div
+              className="rounded-2xl p-8 max-w-2xl w-full my-8 relative"
+              style={{
+                background: 'rgba(13,31,28,0.95)',
+                border: '1px solid rgba(34,197,94,0.3)',
+                boxShadow: '0 0 40px rgba(34,197,94,0.3)',
+              }}
+            >
+              <div className="flex items-center justify-center mb-6">
+                <Sparkles className="mr-3" size={28} style={{ color: '#22C55E' }} />
+                <h3 className="text-white font-bold text-2xl">Journal Analytics</h3>
+                <Sparkles className="ml-3" size={28} style={{ color: '#22C55E' }} />
+              </div>
+
+              <div className="text-gray-300 space-y-6">
+                <div>
+                  <h4 className="text-green-400 font-semibold text-lg mb-2">Sentiment Analysis</h4>
+                  <p><b>Sentiment:</b> {analyticsData.sentiment}</p>
+                  <p><b>Polarity Score:</b> {analyticsData.polarity_score}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-teal-400 font-semibold text-lg mb-2">🩵 Emotional Summary</h4>
+                  <p>{analyticsData.emotional_summary}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-green-400 font-semibold text-lg mb-2">💬 Reflection</h4>
+                  <p>{analyticsData.reflection}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-green-400 font-semibold text-lg mb-2">🌱 Suggestions</h4>
+                  <ol className="list-decimal ml-5 space-y-2">
+                    {analyticsData.suggestions.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={handleReset}
+                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    color: '#fff',
+                    boxShadow: '0 0 25px rgba(249,115,22,0.4)',
+                    fontWeight: '600',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -444,6 +591,11 @@ export function JournalPage() {
         .slider-productivity::-webkit-slider-thumb {
           background: linear-gradient(135deg, #0F766E, #22C55E);
           box-shadow: 0 0 12px rgba(15,118,110,0.6);
+        }
+
+        .slider-mood::-webkit-slider-thumb:hover,
+        .slider-productivity::-webkit-slider-thumb:hover {
+          transform: scale(1.1);
         }
       `}</style>
     </div>
