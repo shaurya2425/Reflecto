@@ -31,7 +31,9 @@ def get_all_journals(user_id: str):
     for doc in docs:
         journal = doc.to_dict()
         journal["id"] = doc.id
-        journals.append(journal)
+        newjournal = {"journal_id": doc.id,
+                      **journal}
+        journals.append(newjournal)
     return journals
 
 

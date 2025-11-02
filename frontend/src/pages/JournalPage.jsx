@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles, X, Trash2, Edit } from 'lucide-react';
+import { BookOpen, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { serverUrl } from '@/lib/utils.js';
+import { SuccessModal } from '@/components/SuccessModal.jsx';
+import { AnalyticsModal } from '@/components/AnalyticsModal.jsx';
+import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal.jsx';
+import { PastEntryModal } from '@/components/PastEntryModal.jsx';
+import { NewEntryForm } from '@/components/NewEntryForm.jsx';
+import { PastEntriesList } from '@/components/PastEntriesList.jsx';
 import { set } from 'date-fns';
 
 export function JournalPage() {
@@ -20,7 +26,9 @@ export function JournalPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
   const [entries, setEntries] = useState([]);
-  const [refresh,setRefresh] = useState(0);
+  const [editingJournalId, setEditingJournalId] = useState(null);
+  const [refresh, setRefresh] = useState(0);
+  const [updateMode, setUpdateMode] = useState(false);
 
   const { user } = useAuth();
 
@@ -38,9 +46,11 @@ export function JournalPage() {
       } catch (error) {
         console.error('Error fetching journal entries:', error);
       }
-    }
+    };
     fetchData();
-  }, [user,refresh]);
+  }, [user, refresh]);
+
+
 
   const handleViewPastEntry = (entry) => {
     setSelectedEntry(entry);
@@ -48,48 +58,57 @@ export function JournalPage() {
   };
 
   const handleSave = async () => {
-    try {
-      // ✅ Validation (return if missing title or description)
-      if (!title.trim() || !description.trim()) {
-        alert("Please fill in all fields before saving.");
-        return;
-      }
-
-      const url = serverUrl.BASE_URL + "api/journals/";
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_uid: user.uid,
-          title,
-          description,
-          mood,
-          productivity,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save journal entry");
-      }
-      setRefresh(refresh+1);
-      
-      // ✅ Optional: parse returned data
-      const data = await response.json();
-      console.log("Journal saved:", data);
-
-      // ✅ Show success modal and reset fields
-      setShowSuccessModal(true);
-      setTitle("");
-      setDescription("");
-      setMood(5);
-      setProductivity(5);
-    } catch (error) {
-      console.error("Error saving journal:", error);
-      alert("Something went wrong while saving your journal.");
+  try {
+    if (!title.trim() || !description.trim()) {
+      alert("Please fill in all fields before saving.");
+      return;
     }
+
+    // 🧠 Decide URL and method
+    const url = editingJournalId
+      ? `${serverUrl.BASE_URL}api/journals/${editingJournalId}`
+      : `${serverUrl.BASE_URL}api/journals/`;
+
+    const method = editingJournalId ? "PUT" : "POST";
+
+    // 🧮 Generate sentiment + polarity from your helper
+    const { sentiment, polarity_score } = generateAnalysis(mood, productivity);
+
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_uid: user.uid,
+        title,
+        description,
+        mood,
+        productivity,
+        sentiment,
+        polarity_score,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Failed to save or update journal");
+
+    const data = await response.json();
+    console.log(editingJournalId ? "Journal updated:" : "Journal saved:", data);
+
+    // 🔁 Refresh entries
+    setRefresh(refresh + 1);
+
+    // 🧹 Reset fields
+    setTitle("");
+    setDescription("");
+    setMood(5);
+    setProductivity(5);
+    setEditingJournalId(null);
+    setUpdateMode(false);
+    setShowSuccessModal(true);
+
+  } catch (error) {
+    console.error("Error saving/updating journal:", error);
+    alert("Something went wrong while saving/updating your journal.");
+  }
   };
 
   const handleContinueWriting = () => {
@@ -101,10 +120,13 @@ export function JournalPage() {
   };
 
   const handleEditEntry = (entry) => {
+    setUpdateMode(true);
+    console.log(entry.journal_id);
     setTitle(entry.title);
     setDescription(entry.description);
     setMood(entry.mood);
     setProductivity(entry.productivity);
+    setEditingJournalId(entry.journal_id);
     setActiveTab('new');
     setShowPastEntryModal(false);
   };
@@ -208,549 +230,72 @@ export function JournalPage() {
 
         {/* New Entry */}
         {activeTab === 'new' && (
-          <div
-            className="rounded-2xl p-6 md:p-8 backdrop-blur-lg"
-            style={{
-              background: 'rgba(13, 31, 28, 0.6)',
-              border: '1px solid rgba(34,197,94,0.2)',
-              boxShadow: '0 0 30px rgba(34,197,94,0.15)',
-            }}
-          >
-            {/* Title */}
-            <div className="mb-6">
-              <h2 className="text-white mb-3 text-xl font-semibold">Journal Title</h2>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Give your entry a title..."
-                className="w-full px-4 py-3 rounded-xl backdrop-blur-sm focus:outline-none transition-all"
-                style={{
-                  background: 'rgba(13,31,28,0.8)',
-                  border: '1px solid rgba(34,197,94,0.3)',
-                  color: '#FFFFFF',
-                  caretColor: '#22C55E',
-                }}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="mb-6">
-              <h2 className="text-white mb-3 text-xl font-semibold">Description of the Day</h2>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="How was your day? What happened? How do you feel?"
-                rows={8}
-                className="w-full px-4 py-3 rounded-xl backdrop-blur-sm focus:outline-none resize-none transition-all"
-                style={{
-                  background: 'rgba(13,31,28,0.8)',
-                  border: '1px solid rgba(34,197,94,0.3)',
-                  color: '#FFFFFF',
-                  caretColor: '#22C55E',
-                }}
-              />
-            </div>
-
-            {/* Mood */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-white text-xl font-semibold">Mood Level</h2>
-                <span className="text-green-400 font-bold text-xl">{mood}/10</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={mood}
-                onChange={(e) => setMood(parseInt(e.target.value))}
-                className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-mood"
-                style={{
-                  background: `linear-gradient(to right, #22C55E ${(mood - 1) * 11.11}%, rgba(255,255,255,0.1) ${(mood - 1) * 11.11}%)`,
-                }}
-              />
-              <div className="flex justify-between mt-2 text-gray-400 text-sm">
-                <span>😔 Low</span>
-                <span>😊 High</span>
-              </div>
-            </div>
-
-            {/* Productivity */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-white text-xl font-semibold">Productivity Level</h2>
-                <span className="text-teal-400 font-bold text-xl">{productivity}/10</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={productivity}
-                onChange={(e) => setProductivity(parseInt(e.target.value))}
-                className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-productivity"
-                style={{
-                  background: `linear-gradient(to right, #0F766E ${(productivity - 1) * 11.11}%, rgba(255,255,255,0.1) ${(productivity - 1) * 11.11}%)`,
-                }}
-              />
-              <div className="flex justify-between mt-2 text-gray-400 text-sm">
-                <span>📉 Low</span>
-                <span>📈 High</span>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={handleSave}
-                disabled={!title.trim() || !description.trim()}
-                className="py-3 px-8 rounded-xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-                style={{
-                  background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                  color: '#fff',
-                  boxShadow: '0 0 25px rgba(249,115,22,0.4)',
-                  fontWeight: '600',
-                }}
-              >
-                Save Journal Entry
-              </button>
-            </div>
-          </div>
+          <NewEntryForm
+            title={title}
+            setTitle={setTitle}
+            description={description}
+            setDescription={setDescription}
+            mood={mood}
+            setMood={setMood}
+            productivity={productivity}
+            setProductivity={setProductivity}
+            onSave={handleSave}
+            updateMode={updateMode}
+          />
         )}
 
         {/* Past Entries */}
         {activeTab === 'past' && (
-          <div
-            className="rounded-2xl p-6 md:p-8 backdrop-blur-lg"
-            style={{
-              background: 'rgba(13, 31, 28, 0.6)',
-              border: '1px solid rgba(34,197,94,0.2)',
-              boxShadow: '0 0 30px rgba(34,197,94,0.15)',
-            }}
-          >
-            <h2 className="text-white mb-6 text-xl font-semibold">Your Past Entries</h2>
-
-            <div className="grid gap-4">
-              {entries.map((entry, i) => (
-                <div
-                  key={entry.id}
-                  className="rounded-xl p-5 relative backdrop-blur-sm transition-all hover:scale-[1.01]"
-                  style={{
-                    background: 'rgba(13, 31, 28, 0.8)',
-                    border: '1px solid rgba(34, 197, 94, 0.25)',
-                    boxShadow: '0 0 15px rgba(34, 197, 94, 0.1)',
-                  }}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="text-green-400 font-semibold text-lg">{entry.title}</h3>
-                      <span className="text-gray-400 text-sm">{entry.date}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditEntry(entry)}
-                        className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
-                        style={{
-                          background: 'linear-gradient(135deg, #22C55E 0%, #0F766E 100%)',
-                          color: '#0D1F1C',
-                          fontWeight: 600,
-                          boxShadow: '0 0 10px rgba(34,197,94,0.4)',
-                        }}
-                      >
-                        <Edit className="inline mr-1" size={14} />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(entry)}
-                        className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
-                        style={{
-                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                          color: '#fff',
-                          fontWeight: 600,
-                          boxShadow: '0 0 10px rgba(239,68,68,0.4)',
-                        }}
-                      >
-                        <Trash2 className="inline mr-1" size={14} />
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => handleViewPastEntry(entry)}
-                        className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
-                        style={{
-                          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                          color: '#fff',
-                          fontWeight: 600,
-                          boxShadow: '0 0 10px rgba(249,115,22,0.4)',
-                        }}
-                      >
-                        View
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-gray-300 mb-3 line-clamp-2">{entry.description}</p>
-
-                  <div className="flex justify-between text-sm text-gray-400">
-                    <span>😊 Mood: <b className="text-green-400">{entry.mood}/10</b></span>
-                    <span>💼 Productivity: <b className="text-teal-400">{entry.productivity}/10</b></span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <PastEntriesList
+            entries={entries}
+            onView={handleViewPastEntry}
+            onEdit={handleEditEntry}
+            onDelete={handleDeleteClick}
+          />
         )}
 
         {/* Success Modal */}
         {showSuccessModal && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-[100] p-4"
-            style={{
-              background: 'linear-gradient(135deg, rgba(11, 18, 16, 0.95) 0%, rgba(16, 28, 24, 0.95) 100%)',
-              backdropFilter: 'blur(10px)'
-            }}
-          >
-            <div
-              className="rounded-2xl p-8 max-w-md w-full backdrop-blur-xl relative"
-              style={{
-                background: 'rgba(13, 31, 28, 0.95)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                boxShadow: '0 0 40px rgba(34, 197, 94, 0.3)'
-              }}
-            >
-              {/* Close Button */}
-              <button
-                onClick={handleContinueWriting}
-                className="absolute top-4 right-4 p-1.5 rounded-lg transition-all hover:bg-green-500/20"
-                style={{
-                  color: '#9CA3AF'
-                }}
-              >
-                <X size={18} />
-              </button>
-
-              <div className="text-center mb-6 mt-2">
-                <div className="mx-auto mb-4 inline-block" style={{
-                  color: '#22C55E',
-                  filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.5))'
-                }}>
-                  <CheckCircle size={64} />
-                </div>
-                <h3 className="text-white mb-2" style={{ fontWeight: '700', fontSize: '1.5rem' }}>
-                  Journal Created Successfully!
-                </h3>
-                <p className="text-gray-400">Your entry has been saved</p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleContinueWriting}
-                  className="w-full py-3 rounded-xl transition-all backdrop-blur-sm hover:scale-105"
-                  style={{
-                    background: 'linear-gradient(135deg, #22C55E 0%, #0F766E 100%)',
-                    color: '#0D1F1C',
-                    boxShadow: '0 0 20px rgba(34, 197, 94, 0.4)',
-                    fontWeight: '600'
-                  }}
-                >
-                  Continue Writing
-                </button>
-                <button
-                  onClick={handleViewAnalytics}
-                  className="w-full py-3 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                    color: '#FFFFFF',
-                    boxShadow: '0 0 20px rgba(249, 115, 22, 0.4)',
-                    fontWeight: '600'
-                  }}
-                >
-                  <BarChart3 className="inline mr-2" size={20} />
-                  See Full Analytics
-                </button>
-              </div>
-            </div>
-          </div>
+          <SuccessModal
+            onContinue={handleContinueWriting}
+            onViewAnalytics={handleViewAnalytics}
+          />
         )}
 
         {/* Analytics Modal */}
         {showAnalyticsModal && analyticsData && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-[110] p-4 overflow-y-auto"
-            style={{
-              background: 'rgba(13,31,28,0.9)',
-              backdropFilter: 'blur(10px)',
-            }}
-          >
-            <div
-              className="rounded-2xl p-8 max-w-2xl w-full my-8 relative"
-              style={{
-                background: 'rgba(13,31,28,0.95)',
-                border: '1px solid rgba(34,197,94,0.3)',
-                boxShadow: '0 0 40px rgba(34,197,94,0.3)',
-              }}
-            >
-              <div className="flex items-center justify-center mb-6">
-                <Sparkles className="mr-3" size={28} style={{ color: '#22C55E' }} />
-                <h3 className="text-white font-bold text-2xl">Journal Analytics</h3>
-                <Sparkles className="ml-3" size={28} style={{ color: '#22C55E' }} />
-              </div>
-
-              <div className="text-gray-300 space-y-6">
-                <div>
-                  <h4 className="text-green-400 font-semibold text-lg mb-2">Sentiment Analysis</h4>
-                  <p><b>Sentiment:</b> {analyticsData.sentiment}</p>
-                  <p><b>Polarity Score:</b> {analyticsData.polarity_score}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-teal-400 font-semibold text-lg mb-2">🩵 Emotional Summary</h4>
-                  <p>{analyticsData.emotional_summary}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-green-400 font-semibold text-lg mb-2">💬 Reflection</h4>
-                  <p>{analyticsData.reflection}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-green-400 font-semibold text-lg mb-2">🌱 Suggestions</h4>
-                  <ol className="list-decimal ml-5 space-y-2">
-                    {analyticsData.suggestions.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={handleReset}
-                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                    color: '#fff',
-                    boxShadow: '0 0 25px rgba(249,115,22,0.4)',
-                    fontWeight: '600',
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
+          <AnalyticsModal
+            analyticsData={analyticsData}
+            onClose={handleReset}
+          />
         )}
 
         {/* Past Entry Modal */}
         {showPastEntryModal && selectedEntry && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-[120] p-4 overflow-y-auto"
-            style={{
-              background: 'rgba(13,31,28,0.9)',
-              backdropFilter: 'blur(12px)',
-            }}
-          >
-            <div
-              className="rounded-2xl p-8 max-w-xl w-full relative"
-              style={{
-                background: 'rgba(13,31,28,0.95)',
-                border: '1px solid rgba(34,197,94,0.3)',
-                boxShadow: '0 0 40px rgba(34,197,94,0.3)',
-              }}
-            >
-              <h3 className="text-green-400 font-bold text-2xl mb-3">{selectedEntry.title}</h3>
-              <p className="text-gray-400 mb-5">{selectedEntry.date}</p>
-              <p className="text-gray-200 mb-6 whitespace-pre-wrap">{selectedEntry.description}</p>
-
-              <div className="flex justify-between text-gray-400 mb-8">
-                <span>😊 Mood: <b className="text-green-400">{selectedEntry.mood}/10</b></span>
-                <span>💼 Productivity: <b className="text-teal-400">{selectedEntry.productivity}/10</b></span>
-              </div>
-
-              <div className="flex justify-between">
-                <button
-                  onClick={() => setShowPastEntryModal(false)}
-                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    border: '1px solid rgba(34,197,94,0.3)',
-                  }}
-                >
-                  Close
-                </button>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleEditEntry(selectedEntry)}
-                    className="py-3 px-6 ml-2 rounded-xl transition-all hover:scale-105"
-                    style={{
-                      background: 'linear-gradient(135deg, #22C55E 0%, #0F766E 100%)',
-                      color: '#0D1F1C',
-                      boxShadow: '0 0 20px rgba(34,197,94,0.4)',
-                      fontWeight: '600',
-                    }}
-                  >
-                    <Edit className="inline mr-1 " size={20} />
-                    Edit Entry
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteClick(selectedEntry)}
-                    className="py-3 px-6 rounded-xl transition-all hover:scale-105"
-                    style={{
-                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                      color: '#fff',
-                      boxShadow: '0 0 20px rgba(239,68,68,0.4)',
-                      fontWeight: '600',
-                    }}
-                  >
-                    <Trash2 className="inline mr-2" size={20} />
-                    Delete
-                  </button>
-
-                  <button
-                    onClick={handleViewPastEntryAnalytics}
-                    className="py-3 px-6 rounded-xl transition-all hover:scale-105"
-                    style={{
-                      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                      color: '#fff',
-                      boxShadow: '0 0 20px rgba(249,115,22,0.4)',
-                      fontWeight: '600',
-                    }}
-                  >
-                    <BarChart3 className="inline mr-2" size={20} />
-                    Analytics
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PastEntryModal
+            entry={selectedEntry}
+            onClose={() => setShowPastEntryModal(false)}
+            onEdit={handleEditEntry}
+            onDelete={handleDeleteClick}
+            onViewAnalytics={handleViewPastEntryAnalytics}
+          />
         )}
 
         {/* Past Entry Analytics Modal */}
         {showPastEntryAnalyticsModal && analyticsData && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-[130] p-4 overflow-y-auto"
-            style={{
-              background: 'rgba(13,31,28,0.9)',
-              backdropFilter: 'blur(10px)',
-            }}
-          >
-            <div
-              className="rounded-2xl p-8 max-w-2xl w-full my-8 relative"
-              style={{
-                background: 'rgba(13,31,28,0.95)',
-                border: '1px solid rgba(34,197,94,0.3)',
-                boxShadow: '0 0 40px rgba(34,197,94,0.3)',
-              }}
-            >
-              <div className="flex items-center justify-center mb-6">
-                <Sparkles className="mr-3" size={28} style={{ color: '#22C55E' }} />
-                <h3 className="text-white font-bold text-2xl">Journal Analytics</h3>
-                <Sparkles className="ml-3" size={28} style={{ color: '#22C55E' }} />
-              </div>
-
-              <div className="text-gray-300 space-y-6">
-                <div>
-                  <h4 className="text-green-400 font-semibold text-lg mb-2">Sentiment Analysis</h4>
-                  <p><b>Sentiment:</b> {analyticsData.sentiment}</p>
-                  <p><b>Polarity Score:</b> {analyticsData.polarity_score}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-teal-400 font-semibold text-lg mb-2">🩵 Emotional Summary</h4>
-                  <p>{analyticsData.emotional_summary}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-green-400 font-semibold text-lg mb-2">💬 Reflection</h4>
-                  <p>{analyticsData.reflection}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-green-400 font-semibold text-lg mb-2">🌱 Suggestions</h4>
-                  <ol className="list-decimal ml-5 space-y-2">
-                    {analyticsData.suggestions.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={handleReset}
-                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                    color: '#fff',
-                    boxShadow: '0 0 25px rgba(249,115,22,0.4)',
-                    fontWeight: '600',
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
+          <AnalyticsModal
+            analyticsData={analyticsData}
+            onClose={handleReset}
+          />
         )}
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && entryToDelete && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-[140] p-4"
-            style={{
-              background: 'rgba(13,31,28,0.95)',
-              backdropFilter: 'blur(12px)',
-            }}
-          >
-            <div
-              className="rounded-2xl p-8 max-w-md w-full relative"
-              style={{
-                background: 'rgba(13,31,28,0.95)',
-                border: '1px solid rgba(239,68,68,0.4)',
-                boxShadow: '0 0 40px rgba(239,68,68,0.3)',
-              }}
-            >
-              <div className="text-center mb-6">
-                <div className="mx-auto mb-4 inline-block" style={{
-                  color: '#ef4444',
-                  filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.5))'
-                }}>
-                  <Trash2 size={64} />
-                </div>
-                <h3 className="text-white mb-2" style={{ fontWeight: '700', fontSize: '1.5rem' }}>
-                  Delete Entry?
-                </h3>
-                <p className="text-gray-400">Are you sure you want to delete "{entryToDelete.title}"? This action cannot be undone.</p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCancelDelete}
-                  className="flex-1 py-3 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    border: '1px solid rgba(34,197,94,0.3)',
-                    fontWeight: '600',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmDelete}
-                  className="flex-1 py-3 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                    color: '#fff',
-                    boxShadow: '0 0 20px rgba(239,68,68,0.4)',
-                    fontWeight: '600',
-                  }}
-                >
-                  <Trash2 className="inline mr-2" size={20} />
-                  Delete Entry
-                </button>
-              </div>
-            </div>
-          </div>
+          <DeleteConfirmationModal
+            entry={entryToDelete}
+            onConfirm={handleConfirmDelete}
+            onCancel={handleCancelDelete}
+          />
         )}
       </div>
 

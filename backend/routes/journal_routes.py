@@ -55,13 +55,16 @@ async def get_user_journals(user_uid: str):
 
 # ✅ Update a Journal
 @router.put("/{journal_id}", summary="Update journal entry by ID")
-async def update_journal(journal_id: str, entry: JournalCreate):
+async def update_journal_entry(journal_id: str, entry: JournalCreate):
     try:
-        journal_doc = journals_ref.document(journal_id)
-        if not journal_doc.get().exists:
-            raise HTTPException(status_code=404, detail="Journal not found")
-        journal_doc.update(entry.dict())
-        return {"success": True, "message": "Journal updated successfully"}
+        result = update_journal(journal_id, entry.model_dump())
+        return {
+            "success": True,
+            "message": "Journal updated successfully",
+            "updated_entry": result
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
