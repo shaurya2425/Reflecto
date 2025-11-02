@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles, X } from 'lucide-react';
+import { BookOpen, TrendingUp, CheckCircle, BarChart3, Sparkles, X, Trash2, Edit } from 'lucide-react';
 
 export function JournalPage() {
   const [activeTab, setActiveTab] = useState('new');
@@ -14,9 +14,11 @@ export function JournalPage() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [showPastEntryModal, setShowPastEntryModal] = useState(false);
   const [showPastEntryAnalyticsModal, setShowPastEntryAnalyticsModal] = useState(false);
-
-  const pastEntries = [
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState(null);
+  const [entries, setEntries] = useState([
     {
+      id: 1,
       title: 'Refreshed and Productive',
       date: 'October 26, 2025',
       mood: 8,
@@ -24,6 +26,7 @@ export function JournalPage() {
       description: 'Felt motivated today and got most of my work done ahead of time.',
     },
     {
+      id: 2,
       title: 'Calm Evening',
       date: 'October 25, 2025',
       mood: 7,
@@ -31,6 +34,7 @@ export function JournalPage() {
       description: 'Spent a peaceful day reading and reflecting. Low work but high contentment.',
     },
     {
+      id: 3,
       title: 'Tough Day',
       date: 'October 24, 2025',
       mood: 4,
@@ -38,13 +42,14 @@ export function JournalPage() {
       description: 'Felt tired and distracted. Trying to accept slow days as part of growth.',
     },
     {
+      id: 4,
       title: 'Energetic Morning Routine',
       date: 'October 23, 2025',
       mood: 9,
       productivity: 8,
       description: 'Started the day with a jog and a healthy breakfast. Great mental clarity.',
     },
-  ];
+  ]);
 
   const handleViewPastEntry = (entry) => {
     setSelectedEntry(entry);
@@ -61,6 +66,34 @@ export function JournalPage() {
     setMood(5);
     setProductivity(5);
     setShowSuccessModal(false);
+  };
+
+  const handleEditEntry = (entry) => {
+    setTitle(entry.title);
+    setDescription(entry.description);
+    setMood(entry.mood);
+    setProductivity(entry.productivity);
+    setActiveTab('new');
+    setShowPastEntryModal(false);
+  };
+
+  const handleDeleteClick = (entry) => {
+    setEntryToDelete(entry);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (entryToDelete) {
+      setEntries(entries.filter(e => e.id !== entryToDelete.id));
+      setShowDeleteModal(false);
+      setShowPastEntryModal(false);
+      setEntryToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setEntryToDelete(null);
   };
 
   const generateAnalysis = (mood, productivity) => {
@@ -263,9 +296,9 @@ export function JournalPage() {
             <h2 className="text-white mb-6 text-xl font-semibold">Your Past Entries</h2>
 
             <div className="grid gap-4">
-              {pastEntries.map((entry, i) => (
+              {entries.map((entry, i) => (
                 <div
-                  key={i}
+                  key={entry.id}
                   className="rounded-xl p-5 relative backdrop-blur-sm transition-all hover:scale-[1.01]"
                   style={{
                     background: 'rgba(13, 31, 28, 0.8)',
@@ -278,18 +311,46 @@ export function JournalPage() {
                       <h3 className="text-green-400 font-semibold text-lg">{entry.title}</h3>
                       <span className="text-gray-400 text-sm">{entry.date}</span>
                     </div>
-                    <button
-                      onClick={() => handleViewPastEntry(entry)}
-                      className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
-                      style={{
-                        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                        color: '#fff',
-                        fontWeight: 600,
-                        boxShadow: '0 0 10px rgba(249,115,22,0.4)',
-                      }}
-                    >
-                      View
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditEntry(entry)}
+                        className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
+                        style={{
+                          background: 'linear-gradient(135deg, #22C55E 0%, #0F766E 100%)',
+                          color: '#0D1F1C',
+                          fontWeight: 600,
+                          boxShadow: '0 0 10px rgba(34,197,94,0.4)',
+                        }}
+                      >
+                        <Edit className="inline mr-1" size={14} />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(entry)}
+                        className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
+                        style={{
+                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                          color: '#fff',
+                          fontWeight: 600,
+                          boxShadow: '0 0 10px rgba(239,68,68,0.4)',
+                        }}
+                      >
+                        <Trash2 className="inline mr-1" size={14} />
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => handleViewPastEntry(entry)}
+                        className="text-xs px-3 py-1 rounded-lg transition-all hover:scale-105"
+                        style={{
+                          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                          color: '#fff',
+                          fontWeight: 600,
+                          boxShadow: '0 0 10px rgba(249,115,22,0.4)',
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
                   </div>
 
                   <p className="text-gray-300 mb-3 line-clamp-2">{entry.description}</p>
@@ -473,7 +534,7 @@ export function JournalPage() {
               <div className="flex justify-between">
                 <button
                   onClick={() => setShowPastEntryModal(false)}
-                  className="py-3 px-8 rounded-xl"
+                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
                   style={{
                     background: 'rgba(255,255,255,0.1)',
                     color: '#fff',
@@ -483,19 +544,49 @@ export function JournalPage() {
                   Close
                 </button>
 
-                <button
-                  onClick={handleViewPastEntryAnalytics}
-                  className="py-3 px-8 rounded-xl transition-all hover:scale-105"
-                  style={{
-                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                    color: '#fff',
-                    boxShadow: '0 0 20px rgba(249,115,22,0.4)',
-                    fontWeight: '600',
-                  }}
-                >
-                  <BarChart3 className="inline mr-2" size={20} />
-                  View Analysis
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleEditEntry(selectedEntry)}
+                    className="py-3 px-6 ml-2 rounded-xl transition-all hover:scale-105"
+                    style={{
+                      background: 'linear-gradient(135deg, #22C55E 0%, #0F766E 100%)',
+                      color: '#0D1F1C',
+                      boxShadow: '0 0 20px rgba(34,197,94,0.4)',
+                      fontWeight: '600',
+                    }}
+                  >
+                    <Edit className="inline mr-1 " size={20} />
+                    Edit Entry
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteClick(selectedEntry)}
+                    className="py-3 px-6 rounded-xl transition-all hover:scale-105"
+                    style={{
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      color: '#fff',
+                      boxShadow: '0 0 20px rgba(239,68,68,0.4)',
+                      fontWeight: '600',
+                    }}
+                  >
+                    <Trash2 className="inline mr-2" size={20} />
+                    Delete
+                  </button>
+
+                  <button
+                    onClick={handleViewPastEntryAnalytics}
+                    className="py-3 px-6 rounded-xl transition-all hover:scale-105"
+                    style={{
+                      background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                      color: '#fff',
+                      boxShadow: '0 0 20px rgba(249,115,22,0.4)',
+                      fontWeight: '600',
+                    }}
+                  >
+                    <BarChart3 className="inline mr-2" size={20} />
+                    Analytics
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -563,6 +654,67 @@ export function JournalPage() {
                   }}
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && entryToDelete && (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-[140] p-4"
+            style={{
+              background: 'rgba(13,31,28,0.95)',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <div
+              className="rounded-2xl p-8 max-w-md w-full relative"
+              style={{
+                background: 'rgba(13,31,28,0.95)',
+                border: '1px solid rgba(239,68,68,0.4)',
+                boxShadow: '0 0 40px rgba(239,68,68,0.3)',
+              }}
+            >
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-4 inline-block" style={{
+                  color: '#ef4444',
+                  filter: 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.5))'
+                }}>
+                  <Trash2 size={64} />
+                </div>
+                <h3 className="text-white mb-2" style={{ fontWeight: '700', fontSize: '1.5rem' }}>
+                  Delete Entry?
+                </h3>
+                <p className="text-gray-400">Are you sure you want to delete "{entryToDelete.title}"? This action cannot be undone.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="flex-1 py-3 rounded-xl transition-all hover:scale-105"
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#fff',
+                    border: '1px solid rgba(34,197,94,0.3)',
+                    fontWeight: '600',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-3 rounded-xl transition-all hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    color: '#fff',
+                    boxShadow: '0 0 20px rgba(239,68,68,0.4)',
+                    fontWeight: '600',
+                  }}
+                >
+                  <Trash2 className="inline mr-2" size={20} />
+                  Delete Entry
                 </button>
               </div>
             </div>
