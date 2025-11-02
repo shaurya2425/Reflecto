@@ -32,6 +32,17 @@ export function JournalPage() {
 
   const { user } = useAuth();
 
+
+  const sortEntries = (entries) => {
+    // Firestore timestamps might come as string or Firestore Timestamp object
+    return entries.sort((a, b) => {
+      const dateA = new Date(a.updated_at);
+      const dateB = new Date(b.updated_at);
+      return dateB - dateA; // descending order → latest first
+    });
+  };
+
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -42,11 +53,15 @@ export function JournalPage() {
         }
         const data = await response.json();
         setEntries(data);
+        let newData =sortEntries(data); 
+        setEntries(newData);
         console.log(data);
       } catch (error) {
         console.error('Error fetching journal entries:', error);
       }
     };
+    
+
     fetchData();
   }, [user, refresh]);
 
