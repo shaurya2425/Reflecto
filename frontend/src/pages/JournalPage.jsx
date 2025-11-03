@@ -53,14 +53,14 @@ export function JournalPage() {
         }
         const data = await response.json();
         setEntries(data);
-        let newData =sortEntries(data); 
+        let newData = sortEntries(data);
         setEntries(newData);
         console.log(data);
       } catch (error) {
         console.error('Error fetching journal entries:', error);
       }
     };
-    
+
 
     fetchData();
   }, [user, refresh]);
@@ -73,57 +73,57 @@ export function JournalPage() {
   };
 
   const handleSave = async () => {
-  try {
-    if (!title.trim() || !description.trim()) {
-      alert("Please fill in all fields before saving.");
-      return;
+    try {
+      if (!title.trim() || !description.trim()) {
+        alert("Please fill in all fields before saving.");
+        return;
+      }
+
+      // 🧠 Decide URL and method
+      const url = editingJournalId
+        ? `${serverUrl.BASE_URL}api/journals/${editingJournalId}`
+        : `${serverUrl.BASE_URL}api/journals/`;
+
+      const method = editingJournalId ? "PUT" : "POST";
+
+      // 🧮 Generate sentiment + polarity from your helper
+      const { sentiment, polarity_score } = generateAnalysis(mood, productivity);
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_uid: user.uid,
+          title,
+          description,
+          mood,
+          productivity,
+          sentiment,
+          polarity_score,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to save or update journal");
+
+      const data = await response.json();
+      console.log(editingJournalId ? "Journal updated:" : "Journal saved:", data);
+
+      // 🔁 Refresh entries
+      setRefresh(refresh + 1);
+
+      // 🧹 Reset fields
+      setTitle("");
+      setDescription("");
+      setMood(5);
+      setProductivity(5);
+      setEditingJournalId(null);
+      setUpdateMode(false);
+      setShowSuccessModal(true);
+
+    } catch (error) {
+      console.error("Error saving/updating journal:", error);
+      alert("Something went wrong while saving/updating your journal.");
     }
-
-    // 🧠 Decide URL and method
-    const url = editingJournalId
-      ? `${serverUrl.BASE_URL}api/journals/${editingJournalId}`
-      : `${serverUrl.BASE_URL}api/journals/`;
-
-    const method = editingJournalId ? "PUT" : "POST";
-
-    // 🧮 Generate sentiment + polarity from your helper
-    const { sentiment, polarity_score } = generateAnalysis(mood, productivity);
-
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_uid: user.uid,
-        title,
-        description,
-        mood,
-        productivity,
-        sentiment,
-        polarity_score,
-      }),
-    });
-
-    if (!response.ok) throw new Error("Failed to save or update journal");
-
-    const data = await response.json();
-    console.log(editingJournalId ? "Journal updated:" : "Journal saved:", data);
-
-    // 🔁 Refresh entries
-    setRefresh(refresh + 1);
-
-    // 🧹 Reset fields
-    setTitle("");
-    setDescription("");
-    setMood(5);
-    setProductivity(5);
-    setEditingJournalId(null);
-    setUpdateMode(false);
-    setShowSuccessModal(true);
-
-  } catch (error) {
-    console.error("Error saving/updating journal:", error);
-    alert("Something went wrong while saving/updating your journal.");
-  }
   };
 
   const handleContinueWriting = () => {
@@ -151,12 +151,38 @@ export function JournalPage() {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (entryToDelete) {
-      setEntries(entries.filter(e => e.id !== entryToDelete.id));
+  const handleConfirmDelete = async () => {
+    try {
+      if (!entryToDelete) {
+        alert("No journal selected for deletion.");
+        return;
+      }
+
+      // 🧠 Backend endpoint for deleting
+      const url = `${serverUrl.BASE_URL}api/journals/${entryToDelete.id}`;
+
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to delete journal entry");
+
+      const data = await response.json();
+      console.log("Journal deleted:", data);
+
+      // 🔁 Refresh the journal list
+      setRefresh(refresh + 1);
+
+      // 🧹 Cleanup
       setShowDeleteModal(false);
-      setShowPastEntryModal(false);
       setEntryToDelete(null);
+
+    } catch (error) {
+      console.error("Error deleting journal:", error);
+      alert("Something went wrong while deleting your journal.");
     }
   };
 

@@ -67,7 +67,7 @@ def update_journal(journal_id: str, updates: dict):
     return updated
 
 # ✅ DELETE Journal
-def delete_journal(journal_id: str):
+def delete_journal_entry(journal_id: str):
     doc_ref = db.collection(JOURNAL_COLLECTION).document(journal_id)
     if not doc_ref.get().exists:
         return False

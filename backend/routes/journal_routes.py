@@ -6,7 +6,7 @@ from datetime import datetime
 from google.cloud import firestore
 from google.oauth2 import service_account
 import os
-from DataEngine.crud_journal import get_all_journals, create_journal, update_journal, get_journal_by_id, delete_journal
+from DataEngine.crud_journal import get_all_journals, create_journal, update_journal, get_journal_by_id, delete_journal_entry
 
 
 router = APIRouter()
@@ -72,10 +72,12 @@ async def update_journal_entry(journal_id: str, entry: JournalCreate):
 @router.delete("/{journal_id}", summary="Delete a journal entry by ID")
 async def delete_journal(journal_id: str):
     try:
-        journal_doc = journals_ref.document(journal_id)
-        if not journal_doc.get().exists:
-            raise HTTPException(status_code=404, detail="Journal not found")
-        journal_doc.delete()
-        return {"success": True, "message": "Journal deleted successfully"}
+        result = delete_journal_entry(journal_id)
+        return {
+            "success": True,
+            "message": "Journal deleted successfully"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
