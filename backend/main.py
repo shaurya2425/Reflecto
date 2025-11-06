@@ -16,6 +16,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # allows all methods: GET, POST, PUT, DELETE, OPTIONS
     allow_headers=["*"],  # allows all headers like Content-Type, Authorization, etc.
+    expose_headers=["*"],   # 👈 add this
+
 )
 
 # ✅ Include routes

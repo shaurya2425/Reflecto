@@ -6,31 +6,36 @@ import uvicorn
 import os
 import sys
 
-# ✅ Ensure parent (backend) folder is in sys.path for imports
+# ✅ Ensure backend folder is in the Python import path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
-# ✅ Use absolute imports (not relative)
+# ✅ Existing imports
 from AI_Engine.sentiment_analyzer import analyze_sentiment
 from AI_Engine.gemini_advisor import generate_dynamic_advice
 
+# ✅ NEW: ChatHistoryPipeline from Reflecto RAG
+from AI_Engine.rag.chat_history import ChatHistoryPipeline
 
-# Create FastAPI router 
+pipeline = ChatHistoryPipeline()
+
+# Create FastAPI router
 router = APIRouter()
+chat_pipeline = ChatHistoryPipeline()  # pipeline with Firestore + Query.py
 
 
 class JournalRequest(BaseModel):
     entry: str
 
 
+class ChatRequest(BaseModel):
+    user_id: str
+    message: str
+
+
 @router.post("/analyze-journal")
 async def analyze_journal(request: JournalRequest):
-    """
-    Combines sentiment analysis + Gemini advice generation.
-    Input: journal entry text
-    Output: sentiment + AI advice
-    """
     try:
         sentiment_result = analyze_sentiment(request.entry)
         gemini_result = generate_dynamic_advice(request.entry, sentiment_result)
@@ -45,10 +50,40 @@ async def analyze_journal(request: JournalRequest):
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
+@router.get("/chat/health")
+async def chat_health():
+    return {"ok": True, "service": "reflecto-chat", "stage": "rag-ready"}
+
+
+@router.post("/chat")
+async def chat_reflecto(request: ChatRequest):
+    """
+    Reflecto RAG-based chatbot with crisis detection and Firestore history.
+    """
+    try:
+        if not request.user_id.strip() or not request.message.strip():
+            raise HTTPException(status_code=400, detail="user_id and message are required")
+
+        result = pipeline.process(
+            user_id=request.user_id,
+            query=request.message
+        )
+
+        # Return clean fields even if some keys missing (like num_docs in crisis)
+        return {
+            "status": "success",
+            "answer": result.get("answer"),
+            "crisis": result.get("crisis", False),
+            "num_docs": result.get("num_docs", 0)  # safe default
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+
+
 # ✅ For direct testing only
 if __name__ == "__main__":
     app = FastAPI(title="Reflecto AI Route Tester")
     app.include_router(router, prefix="/api/ai")
 
-    # 👉 Use uvicorn directly, no 'reload' here
     uvicorn.run(app, host="127.0.0.1", port=8001)

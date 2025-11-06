@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Send, Bot, User, Clock, FileText, Sparkles } from 'lucide-react';
+import { Bot, User, Clock, Send, Plus } from 'lucide-react';
 
 export function ChatbotPage() {
   const [messages, setMessages] = useState([
@@ -18,59 +16,46 @@ export function ChatbotPage() {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [attachEntries, setAttachEntries] = useState(false);
-  const [selectedSession, setSelectedSession] = useState('current');
+  const [sessionId, setSessionId] = useState(() => `session-${Date.now()}`);
   const messagesEndRef = useRef(null);
 
-  const quickReplies = [
-    "I'm feeling anxious",
-    "I had a great day",
-    "I need some motivation",
-    "Help me process my thoughts",
-    "I'm struggling with something"
-  ];
+  const API_BASE = import.meta.env?.VITE_API_BASE || 'http://127.0.0.1:8000';
+  const USER_ID = 'user_webapp';
 
-  const chatSessions = [
-    {
-      id: 'current',
-      title: "Today's Chat",
-      lastMessage: "Hello! I'm here to listen and support you.",
-      timestamp: new Date(),
-      messageCount: 1
-    },
-    {
-      id: '2',
-      title: 'Anxiety Discussion',
-      lastMessage: "Remember, it's okay to feel anxious sometimes...",
-      timestamp: new Date(Date.now() - 86400000),
-      messageCount: 12
-    },
-    {
-      id: '3',
-      title: 'Goal Setting',
-      lastMessage: "Breaking down your goals into smaller steps...",
-      timestamp: new Date(Date.now() - 172800000),
-      messageCount: 8
-    },
-    {
-      id: '4',
-      title: 'Gratitude Practice',
-      lastMessage: "What are three things you're grateful for?",
-      timestamp: new Date(Date.now() - 259200000),
-      messageCount: 15
+  async function sendToBackend(userId, text, sessionId) {
+    const payload = {
+      user_id: userId,
+      session_id: sessionId,
+      message: text
+    };
+
+    const res = await fetch(`${API_BASE}/api/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      let detail = 'Unknown error';
+      try {
+        const errJson = await res.json();
+        detail = errJson?.detail || detail;
+      } catch (_) {}
+      throw new Error(detail);
     }
-  ];
 
-  const botResponses = [
-    "I understand how you're feeling. It's completely valid to experience these emotions.",
-    "Thank you for sharing that with me. Can you tell me more about what's on your mind?",
-    "That sounds challenging. How do you typically cope when you feel this way?",
-    "I'm here to listen without judgment. Take your time to express what you're feeling.",
-    "It's wonderful that you're taking time to reflect. Self-awareness is a powerful tool.",
-    "Based on what you've shared, it sounds like you're being really thoughtful about this situation.",
-    "Remember, every feeling is temporary. You've overcome difficulties before, and you can do it again.",
-    "What would you say to a good friend who was experiencing something similar?"
-  ];
+    const data = await res.json();
+    const answer =
+      typeof data?.answer === 'string'
+        ? data.answer
+        : (data?.answer?.content ?? 'Sorry, I couldn\'t generate a response.');
+
+    return {
+      answer,
+      crisis: !!data?.crisis,
+      num_docs: typeof data?.num_docs === 'number' ? data.num_docs : 0,
+    };
+  }
 
   useEffect(() => {
     scrollToBottom();
@@ -80,255 +65,191 @@ export function ChatbotPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const simulateBotTyping = () => {
-    setIsTyping(true);
-    const randomDelay = Math.random() * 2000 + 1000;
-    
-    setTimeout(() => {
-      const randomResponse = botResponses[Math.floor(Math.random() * botResponses.length)];
-      const newMessage = {
-        id: Date.now().toString(),
+  const handleBackendReply = async (userMessageText) => {
+    try {
+      setIsTyping(true);
+      const { answer, crisis, num_docs } = await sendToBackend(USER_ID, userMessageText, sessionId);
+
+      const newBotMsg = {
+        id: `${Date.now()}-bot`,
         sender: 'bot',
-        content: randomResponse,
+        content: answer,
+        timestamp: new Date(),
+        type: 'text',
+        crisis,
+        num_docs
+      };
+
+      setMessages(prev => [...prev, newBotMsg]);
+    } catch (err) {
+      const fallback = {
+        id: `${Date.now()}-err`,
+        sender: 'bot',
+        content: `Sorry, I couldn't process that right now. ${err?.message ? `(${err.message})` : ''}`,
         timestamp: new Date(),
         type: 'text'
       };
-      setMessages(prev => [...prev, newMessage]);
+      setMessages(prev => [...prev, fallback]);
+    } finally {
       setIsTyping(false);
-    }, randomDelay);
+    }
   };
 
   const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || isTyping) return;
 
+    const text = inputMessage.trim();
     const userMessage = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-user`,
       sender: 'user',
-      content: inputMessage,
+      content: text,
       timestamp: new Date(),
       type: 'text'
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
-    simulateBotTyping();
+    handleBackendReply(text);
   };
 
-  const handleQuickReply = (reply) => {
-    setInputMessage(reply);
+  const handleNewChat = () => {
+    setSessionId(`session-${Date.now()}`);
+    setMessages([
+      {
+        id: '1',
+        sender: 'bot',
+        content: "Hello! I'm here to listen and support you. How are you feeling today?",
+        timestamp: new Date(),
+        type: 'text'
+      }
+    ]);
   };
 
   const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const formatRelativeTime = (date) => {
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
-    return `${Math.floor(diffInHours / 24)}d ago`;
-  };
-
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">AI Companion</h1>
-          <p className="text-gray-400">A safe space to share your thoughts and feelings</p>
-        </div>
+    <div className="h-[calc(100vh-80px)] bg-[#0C1815] flex flex-col w-full overflow-hidden">
 
-        <div className="grid lg:grid-cols-4 gap-8 h-[calc(100vh-200px)]">
-          {/* Chat History Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="bg-[#0D1F1C] glass-card h-full">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center space-x-2">
-                  <MessageCircle className="w-5 h-5 text-green-400" />
-                  <span>Chat History</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {chatSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    onClick={() => setSelectedSession(session.id)}
-                    className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                      selectedSession === session.id
-                        ? 'bg-green-500/20 border border-green-500/30'
-                        : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="text-white text-sm font-medium truncate">{session.title}</h4>
-                      <span className="text-xs text-gray-400">{formatRelativeTime(session.timestamp)}</span>
-                    </div>
-                    <p className="text-xs text-gray-400 truncate mb-2">{session.lastMessage}</p>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-400">
-                        {session.messageCount} messages
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full mt-4 border-green-500/30 text-green-400 hover:bg-green-500/10"
-                  onClick={() => {
-                    const newSessionId = Date.now().toString();
-                    setSelectedSession(newSessionId);
-                    setMessages([{
-                      id: '1',
-                      sender: 'bot',
-                      content: "Hello! I'm here to listen and support you. How are you feeling today?",
-                      timestamp: new Date(),
-                      type: 'text'
-                    }]);
-                  }}
-                >
-                  New Chat
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+      <style>{`
+        body { overflow: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(16, 31, 28, 0.5); border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(34, 197, 94, 0.3); border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(34, 197, 94, 0.5);
+        }
+      `}</style>
+      
+      <div className="max-w-5xl mx-auto w-full h-full flex flex-col px-4 pt-4 pb-4 overflow-hidden">
+        <Card className="bg-[#0D1F1C] glass-card flex flex-col flex-1 overflow-hidden">
 
-          {/* Main Chat Area */}
-          <div className="lg:col-span-3">
-            <Card className="bg-[#0D1F1C] glass-card h-full flex flex-col">
-              <CardHeader className="border-b border-green-500/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-green-400" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-white text-lg">AI Companion</CardTitle>
-                      <p className="text-xs text-gray-400">Always here to listen</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-400">Attach last 3 entries</span>
-                      <Switch 
-                        checked={attachEntries}
-                        onCheckedChange={setAttachEntries}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-
-              {/* Messages */}
-              <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`flex items-start space-x-3 max-w-[80%] ${
-                      message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        message.sender === 'user' 
-                          ? 'bg-blue-500/20' 
-                          : 'bg-green-500/20'
-                      }`}>
-                        {message.sender === 'user' ? (
-                          <User className="w-4 h-4 text-blue-400" />
-                        ) : (
-                          <Bot className="w-4 h-4 text-green-400" />
-                        )}
-                      </div>
-                      
-                      <div className={`rounded-2xl p-4 ${
-                        message.sender === 'user'
-                          ? 'bg-blue-500/20 border border-blue-500/30'
-                          : 'bg-green-500/10 border border-green-500/20'
-                      }`}>
-                        <p className="text-white text-sm leading-relaxed">{message.content}</p>
-                        <div className="flex items-center space-x-1 mt-2">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Typing Indicator */}
-                {isTyping && (
-                  <div className="flex justify-start">
-                    <div className="flex items-start space-x-3 max-w-[80%]">
-                      <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                        <Bot className="w-4 h-4 text-green-400" />
-                      </div>
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
-              </CardContent>
-
-              {/* Quick Replies */}
-              {messages.length <= 2 && (
-                <div className="px-6 py-2 border-t border-green-500/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Sparkles className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-gray-400">Quick replies:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {quickReplies.map((reply, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleQuickReply(reply)}
-                        className="px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-sm text-green-400 hover:bg-green-500/20 transition-colors"
-                      >
-                        {reply}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Input Area */}
-              <div className="p-6 border-t border-green-500/20">
-                <div className="flex space-x-3">
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Share what's on your mind..."
-                    className="flex-1 glass border-green-500/30 focus:border-green-400 text-white placeholder-gray-500"
-                    disabled={isTyping}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || isTyping}
-                    className="bg-green-500 hover:bg-green-600 text-white glow-green-hover"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                {attachEntries && (
-                  <div className="mt-2 flex items-center space-x-2 text-xs text-gray-400">
-                    <FileText className="w-3 h-3" />
-                    <span>Last 3 journal entries will be shared with AI for context</span>
-                  </div>
-                )}
+          <CardHeader className="border-b border-green-500/20 flex-shrink-0 flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-green-400" />
               </div>
-            </Card>
+              <div>
+                <CardTitle className="text-white text-xl">AI Companion</CardTitle>
+                <p className="text-xs text-gray-400">Always here to listen</p>
+              </div>
+            </div>
+            <Button
+              onClick={handleNewChat}
+              className="bg-green-500 hover:bg-green-600 text-white"
+            >
+              <Plus className="w-4 h-4 mr-1" /> New Chat
+            </Button>
+          </CardHeader>
+
+          <CardContent className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`flex items-start space-x-3 max-w-[80%] ${message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    message.sender === 'user' ? 'bg-blue-500/20' : 'bg-green-500/20'
+                  }`}>
+                    {message.sender === 'user' ? (
+                      <User className="w-4 h-4 text-blue-400" />
+                    ) : (
+                      <Bot className="w-4 h-4 text-green-400" />
+                    )}
+                  </div>
+
+                  <div className={`rounded-2xl p-4 ${
+                    message.sender === 'user'
+                      ? 'bg-blue-500/20 border border-blue-500/30'
+                      : 'bg-green-500/10 border border-green-500/20'
+                  }`}>
+                    <p className="text-white text-base leading-relaxed">{message.content}</p>
+                    <div className="flex items-center space-x-1 mt-2">
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+                      {message.sender === 'bot' && message?.crisis && (
+                        <span className="ml-2 text-xs text-red-400">• crisis</span>
+                      )}
+                      {message.sender === 'bot' && typeof message?.num_docs === 'number' && (
+                        <span className="ml-2 text-xs text-gray-500">• ctx {message.num_docs}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="flex items-start space-x-3 max-w-[80%]">
+                  <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-green-400" />
+                  </div>
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </CardContent>
+
+          <div className="p-6 border-t border-green-500/20 flex-shrink-0">
+            <div className="flex space-x-3">
+              <textarea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Share what's on your mind..."
+                className="flex-1 glass border border-green-500/30 focus:border-green-400 text-white placeholder-gray-500 rounded-lg p-3 resize-none h-[64px] overflow-y-auto focus:outline-none"
+                disabled={isTyping}
+              />
+
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isTyping}
+                className="bg-green-500 hover:bg-green-600 text-white glow-green-hover h-[64px] w-[64px] flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
-        </div>
+
+        </Card>
       </div>
     </div>
   );
