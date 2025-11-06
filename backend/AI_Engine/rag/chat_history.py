@@ -11,19 +11,25 @@ class ChatHistoryPipeline:
         self.db = db or firestoreDB
         self.collection = "users"
         self.subcollection = "chat_history"
-        self.history_limit = 14
+        self.history_limit = 14  # Max messages per chat history
 
-    def _chat_ref(self, user_id: str):
+    def _chat_ref(self, user_id: str, session_id: str):
+        """
+        Add session_id separation so each chat remains isolated.
+        """
         return (
             self.db.collection(self.collection)
             .document(user_id)
-            .collection(self.subcollection)
+            .collection(f"{self.subcollection}_{session_id}")
         )
 
-    def retrieve_history(self, user_id: str) -> List:
+    def retrieve_history(self, user_id: str, session_id: str) -> List:
+        """
+        Retrieve history for given user and session_id
+        """
         try:
             docs = (
-                self._chat_ref(user_id)
+                self._chat_ref(user_id, session_id)
                 .order_by("timestamp", direction="DESCENDING")
                 .limit(self.history_limit)
                 .stream()
@@ -41,12 +47,15 @@ class ChatHistoryPipeline:
             print(f"[ChatHistoryPipeline] Error fetching history: {e}")
             return []
 
-    def store(self, user_id: str, role: str, content: Any, metadata: Optional[Dict] = None):
+    def store(self, user_id: str, session_id: str, role: str, content: Any, metadata: Optional[Dict] = None):
+        """
+        Store a single message in the session-specific chat history
+        """
         try:
             if hasattr(content, "content"):
-                content = content.content
+                content = content.content  # Strip LLM wrapper
 
-            self._chat_ref(user_id).add({
+            self._chat_ref(user_id, session_id).add({
                 "role": role,
                 "content": content,
                 "timestamp": datetime.utcnow(),
@@ -57,19 +66,19 @@ class ChatHistoryPipeline:
             print(f"[ChatHistoryPipeline] Error storing message: {e}")
             return False
 
-    def process(self, user_id: str, query: str) -> Dict[str, any]:
+    def process(self, user_id: str, session_id: str, query: str) -> Dict[str, any]:
         """
-        Main function: retrieves history, runs the chatbot, stores result, and returns it.
+        Main function: retrieves session-specific history, runs chatbot, stores result.
         """
-        history = self.retrieve_history(user_id)
+        history = self.retrieve_history(user_id, session_id)
         result = chatbot(query, history)
 
         result.setdefault("num_docs", 0)
         result.setdefault("crisis", False)
 
-        self.store(user_id, "user", query)
+        self.store(user_id, session_id, "user", query)
         self.store(
-            user_id, "assistant", result["answer"],
+            user_id, session_id, "assistant", result["answer"],
             {"num_docs": result["num_docs"], "crisis": result.get("crisis")}
         )
         return result

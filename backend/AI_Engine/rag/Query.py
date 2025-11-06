@@ -1,7 +1,6 @@
-# backend/AI_Engine/rag/Query.py
-
 import os
 from typing import Dict, List, Any
+
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -12,11 +11,18 @@ from langchain_core.runnables import RunnableParallel
 
 from AI_Engine.rag.crisis_detection import detect_crisis
 
+# Natural-language tools
+import nltk
+from nltk.tokenize import word_tokenize
+
+# Download tokenizer resources
+nltk.download('punkt', quiet=True)
+
 # Load environment variables
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env file")
+    raise ValueError("GEMINI_API_KEY not found in the .env file")
 
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DB_FAISS_PATH = os.path.join(os.path.dirname(__file__), "../../vectorstore/db_faiss")
@@ -34,7 +40,7 @@ llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     google_api_key=API_KEY,
     temperature=0.3,
-    max_tokens=2048,
+    max_tokens=1024,
 )
 
 # Load embeddings and vectorstore
@@ -46,20 +52,48 @@ vectorstore = FAISS.load_local(
 )
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
 
-# Prompt for RAG conversation flow
+# Dynamic short acknowledgment list for detecting quick user confirmations
+SHORT_ACK_WORDS = {
+    "ok", "okay", "kk", "k", "thanks", "thank", "thank you", "alright", "fine",
+    "sure", "cool", "yes", "yup", "yo", "got it", "nice", "sounds good"
+}
+
+def is_short_acknowledgment(text: str) -> bool:
+    """
+    Dynamically detect short acknowledgments (e.g. "ok", "thanks", "alright") by:
+    - Checking length (<= 3 words and <= 15 chars)
+    - Checking that all words are in known acknowledgment list
+    """
+    text = text.lower().strip()
+
+    # Ignore messages longer than simple acknowledgment threshold
+    if len(text) > 15 or len(text.split()) > 3:
+        return False
+
+    tokens = word_tokenize(text)
+    return all(word in SHORT_ACK_WORDS for word in tokens)
+
 qa_prompt = ChatPromptTemplate.from_messages([
     (
         "system",
-        "You are Reflecto, a gentle and supportive mental well-being assistant.\n"
-        "Use CBT-style reframing and empathetic guidance.\n\n"
-        "If context is provided, draw from it. Otherwise, say you lack specific dataset "
-        "guidance and provide general support.\n"
-        "Use 1–2 actionable steps and end with a soft follow-up question.\n"
-        "{context}"
+        "You are Reflecto, a warm and supportive mental health companion.\n"
+        "You respond more like a thoughtful friend than a therapist or a chatbot.\n\n"
+        "Your tone should be gentle, human, and emotionally present. Speak with empathy but do not overuse 'I understand' or 'it's okay to feel'.\n"
+        "Be concise and only expand when it feels natural. Avoid formal therapeutic language or structured advice unless the user clearly asks for it.\n\n"
+        "Key guidelines:\n"
+        "- Keep the response grounded in the user's words and feelings.\n"
+        "- If the dataset provides relevant info, subtly blend it in without sounding scripted.\n"
+        "- If there's no relevant context, say so briefly and offer a human, general reflection.\n"
+        "- No bullet points or numbered lists unless the user asks.\n"
+        "- No markdown formatting, asterisks, bold, or underscores.\n"
+        "- Use relatable examples, metaphors, or gentle reframes when helpful.\n"
+        "- Keep follow-up questions subtle and caring—avoid making the user feel interrogated.\n\n"
+        "Context from dataset (may or may not be relevant):\n{context}"
     ),
     MessagesPlaceholder("chat_history"),
     ("user", "{input}")
 ])
+
 
 # Create language chain
 langchain_rag = RunnableParallel(
@@ -79,10 +113,19 @@ def query_chain(
     verbose: bool = False
 ) -> Dict[str, Any]:
     chat_history = chat_history or []
-    is_crisis = detect_crisis(question)
 
+    # Crisis detection check
+    is_crisis = detect_crisis(question)
     if is_crisis:
         return {"answer": CRISIS_RESPONSE, "crisis": True}
+
+    # Detect and shortcut for short acknowledgments
+    if is_short_acknowledgment(question):
+        return {
+            "answer": "You're most welcome 😊 Let me know if there's anything else I can help you with.",
+            "crisis": False,
+            "num_docs": 0,
+        }
 
     try:
         response = langchain_rag.invoke(
@@ -100,7 +143,7 @@ def query_chain(
 
     except Exception as e:
         return {
-            "answer": f"Error: {str(e)}",
+            "answer": f"Sorry, an error occurred while handling your message. ({str(e)})",
             "crisis": False,
             "num_docs": 0,
         }

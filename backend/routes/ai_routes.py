@@ -31,6 +31,7 @@ class JournalRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     user_id: str
+    session_id: str
     message: str
 
 
@@ -58,7 +59,7 @@ async def chat_health():
 @router.post("/chat")
 async def chat_reflecto(request: ChatRequest):
     """
-    Reflecto RAG-based chatbot with crisis detection and Firestore history.
+    Reflecto RAG-based chatbot with crisis detection and Firestore session-specific history.
     """
     try:
         if not request.user_id.strip() or not request.message.strip():
@@ -66,15 +67,15 @@ async def chat_reflecto(request: ChatRequest):
 
         result = pipeline.process(
             user_id=request.user_id,
+            session_id=request.session_id,
             query=request.message
         )
 
-        # Return clean fields even if some keys missing (like num_docs in crisis)
         return {
             "status": "success",
             "answer": result.get("answer"),
             "crisis": result.get("crisis", False),
-            "num_docs": result.get("num_docs", 0)  # safe default
+            "num_docs": result.get("num_docs", 0)
         }
 
     except Exception as e:
