@@ -322,12 +322,14 @@ export function JournalPage() {
           />
         )}
 
-        {/* Past Entry Analytics Modal */}
+        {/* Past Entry Analytics Modal - Always on Top */}
         {showPastEntryAnalyticsModal && analyticsData && (
-          <AnalyticsModal
-            analyticsData={analyticsData}
-            onClose={handleReset}
-          />
+          <div className="fixed inset-0 z-[150] flex items-center justify-center">
+            <AnalyticsModal
+              analyticsData={analyticsData}
+              onClose={handleReset}
+            />
+          </div>
         )}
 
         {/* Delete Confirmation Modal */}

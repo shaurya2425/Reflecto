@@ -4,18 +4,20 @@ import { Sparkles } from 'lucide-react';
 export function AnalyticsModal({ analyticsData, onClose }) {
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-[110] p-4 overflow-y-auto"
+      className="fixed inset-0 z-[150] flex items-center justify-center p-4"
       style={{
         background: 'rgba(13,31,28,0.9)',
         backdropFilter: 'blur(10px)',
       }}
     >
       <div
-        className="rounded-2xl p-8 max-w-2xl w-full my-8 relative"
+        className="rounded-2xl p-8 max-w-2xl w-full relative"
         style={{
           background: 'rgba(13,31,28,0.95)',
           border: '1px solid rgba(34,197,94,0.3)',
           boxShadow: '0 0 40px rgba(34,197,94,0.3)',
+          maxHeight: '85vh', // ✅ prevent modal from growing too tall
+          overflowY: 'auto', // ✅ add internal scroll
         }}
       >
         <div className="flex items-center justify-center mb-6">
@@ -66,6 +68,28 @@ export function AnalyticsModal({ analyticsData, onClose }) {
           </button>
         </div>
       </div>
+
+      {/* ✅ Custom Scrollbar Styling */}
+      <style>{`
+        .rounded-2xl::-webkit-scrollbar {
+          width: 10px;
+        }
+
+        .rounded-2xl::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #22C55E, #0F766E);
+          border-radius: 10px;
+          box-shadow: 0 0 8px rgba(34,197,94,0.4);
+        }
+
+        .rounded-2xl::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(135deg, #16A34A, #0D9488);
+        }
+
+        .rounded-2xl::-webkit-scrollbar-track {
+          background: rgba(13,31,28,0.4);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Edit, Trash2, BarChart3 } from 'lucide-react';
 export function PastEntryModal({ entry, onClose, onEdit, onDelete, onViewAnalytics }) {
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-[120] p-4 overflow-y-auto"
+      className="fixed inset-0 z-[50] flex items-center justify-center z-[120] p-4 overflow-y-auto"
       style={{
         background: 'rgba(13,31,28,0.9)',
         backdropFilter: 'blur(12px)',
