@@ -19,6 +19,7 @@ export function JournalPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [showPastEntryModal, setShowPastEntryModal] = useState(false);
@@ -191,35 +192,132 @@ export function JournalPage() {
     setEntryToDelete(null);
   };
 
-  const generateAnalysis = (mood, productivity) => {
-    const sentiment = mood >= 7 ? 'positive' : mood >= 4 ? 'neutral' : 'negative';
-    const polarityScore = (mood - 5) / 5;
+  // replace your existing generateAnalysis with this
+  const generateAnalysis = async (entryText, setLoading) => {
+    try {
+      if (setLoading) setLoading(true);
 
-    return {
-      sentiment,
-      polarity_score: polarityScore.toFixed(2),
-      emotional_summary: `You seem to be experiencing ${sentiment} emotions with a general sense of ${productivity >= 7 ? 'accomplishment' : productivity >= 4 ? 'balance' : 'low energy'}.`,
-      reflection: `Your mood of ${mood}/10 and productivity of ${productivity}/10 show you're reflecting consciously. Each day teaches something new—keep journaling your growth.`,
-      suggestions: [
-        'Write three things you are grateful for daily.',
-        'Set one small goal for tomorrow to stay consistent.',
-        'Take mindful breaks to reflect during the day.',
-      ],
-    };
+      const url = `${serverUrl.BASE_URL}api/ai/analyze-journal`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entry: entryText }),
+      });
+
+      const text = await resp.text(); // read raw text first for better debugging
+
+      // Non-OK: return structured error with backend response text
+      if (!resp.ok) {
+        console.error("generateAnalysis — non-OK response:", resp.status, text);
+        return { error: true, status: resp.status, rawResponse: text };
+      }
+
+      // Try parse JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("generateAnalysis — JSON parse error:", parseErr, "raw:", text);
+        return { error: true, status: resp.status, rawResponse: text, parseError: true };
+      }
+
+      // Backend returned but not in expected shape
+      if (!data || data.status !== "success") {
+        console.error("generateAnalysis — unexpected backend JSON shape:", data);
+        return { error: true, status: resp.status, rawResponse: data };
+      }
+
+      // Merge into the same flat structure your modals expect
+      return {
+        error: false,
+        sentiment_analysis: data.sentiment_analysis,
+        gemini_advice: data.gemini_advice,
+        merged: {
+          ...data.sentiment_analysis,
+          ...data.gemini_advice,
+        },
+      };
+
+    } catch (err) {
+      console.error("generateAnalysis — fetch/other error:", err);
+      return { error: true, message: err.message || String(err) };
+    } finally {
+      if (setLoading) setLoading(false);
+    }
   };
 
-  const handleViewAnalytics = () => {
-    const data = generateAnalysis(mood, productivity);
-    setAnalyticsData(data);
+
+const handleViewAnalytics = async () => {
+  try {
+    // Prevent multiple clicks
+    if (loading) return;
+    setLoading(true);
+
+    // Get AI analysis once
+    const result = await generateAnalysis(description);
+
+    if (!result || result.error) {
+      console.error("AI Analysis failed:", result);
+      alert("Unable to analyze your journal. Please try again.");
+      return;
+    }
+
+    // Merge and display modal
+    const mergedData = result.merged || {
+      ...result.sentiment_analysis,
+      ...result.gemini_advice,
+    };
+
+    setAnalyticsData(mergedData);
     setShowSuccessModal(false);
     setShowAnalyticsModal(true);
-  };
 
-  const handleViewPastEntryAnalytics = () => {
-    const data = generateAnalysis(selectedEntry.mood, selectedEntry.productivity);
-    setAnalyticsData(data);
+  } catch (err) {
+    console.error("Error in handleViewAnalytics:", err);
+    alert("Something went wrong while fetching analytics.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+const handleViewPastEntryAnalytics = async () => {
+  try {
+    if (!selectedEntry || !selectedEntry.description) {
+      alert("No entry description found for analysis.");
+      return;
+    }
+
+    if (loading) return;
+    setLoading(true);
+
+    const result = await generateAnalysis(selectedEntry.description);
+
+    if (!result || result.error) {
+      console.error("Past Entry Analysis failed:", result);
+      alert("Unable to analyze this past entry.");
+      return;
+    }
+
+    const mergedData = result.merged || {
+      ...result.sentiment_analysis,
+      ...result.gemini_advice,
+    };
+
+    // Always close the past entry modal before showing analytics
+    setShowPastEntryModal(false);
+    setAnalyticsData(mergedData);
     setShowPastEntryAnalyticsModal(true);
-  };
+
+  } catch (err) {
+    console.error("Error analyzing past entry:", err);
+    alert("Something went wrong during analysis.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   const handleReset = () => {
     setTitle('');
@@ -231,6 +329,20 @@ export function JournalPage() {
     setShowPastEntryModal(false);
     setShowPastEntryAnalyticsModal(false);
   };
+
+  const LoaderOverlay = () => (
+  <div className="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/30 z-[9999]">
+    <div className="flex flex-col items-center space-y-3">
+      <div className="relative w-14 h-14">
+        <div className="absolute inset-0 rounded-full border-4 border-[#22C55E]/20"></div>
+        <div className="absolute inset-0 rounded-full border-t-4 border-[#22C55E] animate-spin"></div>
+      </div>
+      <p className="text-gray-200 text-sm font-medium tracking-wide">
+        Analyzing your reflection...
+      </p>
+    </div>
+  </div>
+);
 
   return (
     <div className="min-h-screen p-6 md:p-8" style={{ background: 'linear-gradient(135deg, #0B1210 0%, #101C18 100%)' }}>
@@ -370,6 +482,9 @@ export function JournalPage() {
           transform: scale(1.1);
         }
       `}</style>
+      
+      {loading && <LoaderOverlay />}
+      
     </div>
   );
 }
