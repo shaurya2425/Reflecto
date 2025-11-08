@@ -38,17 +38,21 @@ class ChatRequest(BaseModel):
 @router.post("/analyze-journal")
 async def analyze_journal(request: JournalRequest):
     try:
-        sentiment_result = analyze_sentiment(request.entry)
+        # Analyze sentiment + sarcasm using RoBERTa model
+        sentiment_result = analyze_sentiment(request.entry)  # Now returns {'sentiment': ..., 'sarcasm': ...}
+
+        # Generate dynamic advice based on the updated sentiment result
         gemini_result = generate_dynamic_advice(request.entry, sentiment_result)
 
         return {
             "status": "success",
-            "sentiment_analysis": sentiment_result,
-            "gemini_advice": gemini_result
+            "sentiment_analysis": sentiment_result,  # Includes sentiment + sarcasm
+            "gemini_advice": gemini_result           # Includes JSON from Gemini response
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
 
 
 @router.get("/chat/health")

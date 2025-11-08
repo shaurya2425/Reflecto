@@ -30,7 +30,8 @@ export function AnalyticsModal({ analyticsData, onClose }) {
           <div>
             <h4 className="text-green-400 font-semibold text-lg mb-2">Sentiment Analysis</h4>
             <p><b>Sentiment:</b> {analyticsData.sentiment}</p>
-            <p><b>Polarity Score:</b> {analyticsData.polarity_score}</p>
+            {/* <p><b>Polarity Score:</b> {analyticsData.polarity_score}</p> */}
+            <p><b>Sarcasm:</b> {analyticsData.sarcasm}</p>
           </div>
 
           <div>
