@@ -73,59 +73,59 @@ export function JournalPage() {
     setShowPastEntryModal(true);
   };
 
-  const handleSave = async () => {
-    try {
-      if (!title.trim() || !description.trim()) {
-        alert("Please fill in all fields before saving.");
-        return;
-      }
-
-      // 🧠 Decide URL and method
-      const url = editingJournalId
-        ? `${serverUrl.BASE_URL}api/journals/${editingJournalId}`
-        : `${serverUrl.BASE_URL}api/journals/`;
-
-      const method = editingJournalId ? "PUT" : "POST";
-
-      // 🧮 Generate sentiment + polarity from your helper
-      const { sentiment, polarity_score } = generateAnalysis(mood, productivity);
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_uid: user.uid,
-          title,
-          description,
-          mood,
-          productivity,
-          sentiment,
-          polarity_score,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to save or update journal");
-
-      const data = await response.json();
-      console.log(editingJournalId ? "Journal updated:" : "Journal saved:", data);
-
-      // 🔁 Refresh entries
-      setRefresh(refresh + 1);
-
-      // 🧹 Reset fields
-      setTitle("");
-      setDescription("");
-      setMood(5);
-      setProductivity(5);
-      setEditingJournalId(null);
-      setUpdateMode(false);
-      setShowSuccessModal(true);
-
-    } catch (error) {
-      console.error("Error saving/updating journal:", error);
-      alert("Something went wrong while saving/updating your journal.");
+const handleSave = async () => {
+  try {
+    if (!title.trim() || !description.trim()) {
+      alert("Please fill in all fields before saving.");
+      return;
     }
-  };
+
+    const url = editingJournalId
+      ? `${serverUrl.BASE_URL}api/journals/${editingJournalId}`
+      : `${serverUrl.BASE_URL}api/journals/`;
+    const method = editingJournalId ? "PUT" : "POST";
+
+    const analysisResult = await generateAnalysis(description);
+
+    if (analysisResult?.error) {
+      console.error("AI Analysis failed:", analysisResult);
+      alert("Error analyzing sentiment. Please try again.");
+      return;
+    }
+
+    const { sentiment, sarcasm } = analysisResult.merged;
+
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_uid: user.uid,
+        title,
+        description,
+        mood,
+        productivity,
+        sentiment,
+        sarcasm,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Failed to save or update journal");
+
+    setRefresh(refresh + 1);
+
+    // Reset input + trigger success modal
+    setTitle("");
+    setDescription("");
+    setMood(5);
+    setProductivity(5);
+    setShowSuccessModal(true);
+
+  } catch (error) {
+    console.error("Error saving journal:", error);
+    alert("Something went wrong while saving your journal.");
+  }
+};
+
 
   const handleContinueWriting = () => {
     setTitle('');
@@ -247,75 +247,77 @@ export function JournalPage() {
   };
 
 
-const handleViewAnalytics = async () => {
-  try {
-    // Prevent multiple clicks
-    if (loading) return;
-    setLoading(true);
+  const handleViewAnalytics = async () => {
+    try {
+      // Prevent multiple clicks
+      if (loading) return;
+      setLoading(true);
 
-    // Get AI analysis once
-    const result = await generateAnalysis(description);
+      // Get AI analysis once
+          // Use selected saved entry instead of input description
+    const latestEntry = entries[0];
+    const result = await generateAnalysis(latestEntry.description);
 
-    if (!result || result.error) {
-      console.error("AI Analysis failed:", result);
-      alert("Unable to analyze your journal. Please try again.");
-      return;
+      if (!result || result.error) {
+        console.error("AI Analysis failed:", result);
+        alert("Unable to analyze your journal. Please try again.");
+        return;
+      }
+
+      // Merge and display modal
+      const mergedData = result.merged || {
+        ...result.sentiment_analysis,
+        ...result.gemini_advice,
+      };
+
+      setAnalyticsData(mergedData);
+      setShowSuccessModal(false);
+      setShowAnalyticsModal(true);
+
+    } catch (err) {
+      console.error("Error in handleViewAnalytics:", err);
+      alert("Something went wrong while fetching analytics.");
+    } finally {
+      setLoading(false);
     }
-
-    // Merge and display modal
-    const mergedData = result.merged || {
-      ...result.sentiment_analysis,
-      ...result.gemini_advice,
-    };
-
-    setAnalyticsData(mergedData);
-    setShowSuccessModal(false);
-    setShowAnalyticsModal(true);
-
-  } catch (err) {
-    console.error("Error in handleViewAnalytics:", err);
-    alert("Something went wrong while fetching analytics.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
-const handleViewPastEntryAnalytics = async () => {
-  try {
-    if (!selectedEntry || !selectedEntry.description) {
-      alert("No entry description found for analysis.");
-      return;
+  const handleViewPastEntryAnalytics = async () => {
+    try {
+      if (!selectedEntry || !selectedEntry.description) {
+        alert("No entry description found for analysis.");
+        return;
+      }
+
+      if (loading) return;
+      setLoading(true);
+
+      const result = await generateAnalysis(selectedEntry.description);
+
+      if (!result || result.error) {
+        console.error("Past Entry Analysis failed:", result);
+        alert("Unable to analyze this past entry.");
+        return;
+      }
+
+      const mergedData = result.merged || {
+        ...result.sentiment_analysis,
+        ...result.gemini_advice,
+      };
+
+      // Always close the past entry modal before showing analytics
+      setShowPastEntryModal(false);
+      setAnalyticsData(mergedData);
+      setShowPastEntryAnalyticsModal(true);
+
+    } catch (err) {
+      console.error("Error analyzing past entry:", err);
+      alert("Something went wrong during analysis.");
+    } finally {
+      setLoading(false);
     }
-
-    if (loading) return;
-    setLoading(true);
-
-    const result = await generateAnalysis(selectedEntry.description);
-
-    if (!result || result.error) {
-      console.error("Past Entry Analysis failed:", result);
-      alert("Unable to analyze this past entry.");
-      return;
-    }
-
-    const mergedData = result.merged || {
-      ...result.sentiment_analysis,
-      ...result.gemini_advice,
-    };
-
-    // Always close the past entry modal before showing analytics
-    setShowPastEntryModal(false);
-    setAnalyticsData(mergedData);
-    setShowPastEntryAnalyticsModal(true);
-
-  } catch (err) {
-    console.error("Error analyzing past entry:", err);
-    alert("Something went wrong during analysis.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
 
@@ -331,18 +333,18 @@ const handleViewPastEntryAnalytics = async () => {
   };
 
   const LoaderOverlay = () => (
-  <div className="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/30 z-[9999]">
-    <div className="flex flex-col items-center space-y-3">
-      <div className="relative w-14 h-14">
-        <div className="absolute inset-0 rounded-full border-4 border-[#22C55E]/20"></div>
-        <div className="absolute inset-0 rounded-full border-t-4 border-[#22C55E] animate-spin"></div>
+    <div className="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/30 z-[9999]">
+      <div className="flex flex-col items-center space-y-3">
+        <div className="relative w-14 h-14">
+          <div className="absolute inset-0 rounded-full border-4 border-[#22C55E]/20"></div>
+          <div className="absolute inset-0 rounded-full border-t-4 border-[#22C55E] animate-spin"></div>
+        </div>
+        <p className="text-gray-200 text-sm font-medium tracking-wide">
+          Analyzing your reflection...
+        </p>
       </div>
-      <p className="text-gray-200 text-sm font-medium tracking-wide">
-        Analyzing your reflection...
-      </p>
     </div>
-  </div>
-);
+  );
 
   return (
     <div className="min-h-screen p-6 md:p-8" style={{ background: 'linear-gradient(135deg, #0B1210 0%, #101C18 100%)' }}>
@@ -482,9 +484,9 @@ const handleViewPastEntryAnalytics = async () => {
           transform: scale(1.1);
         }
       `}</style>
-      
+
       {loading && <LoaderOverlay />}
-      
+
     </div>
   );
 }
