@@ -8,29 +8,49 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
-    prompt = f"""
-    You are a mental health support AI, acting as a licensed therapist. You are provided with a user's journal entry and automated sentiment analysis.
+    sentiment = sentiment_data['sentiment']
+    sarcasm = sentiment_data['sarcasm']
 
+    # Context-aware emotional interpretation
+    if sarcasm == "sarcastic":
+        if sentiment == "positive":
+            true_tone = "masked frustration or conflict under a playful tone"
+        elif sentiment == "neutral":
+            true_tone = "detached or subtle dissatisfaction beneath an indifferent tone"
+        elif sentiment == "negative":
+            true_tone = "deep emotional difficulty or hurt masked with sarcastic humor"
+        else:
+            true_tone = "mixed emotions expressed indirectly with sarcasm"
+    else:
+        true_tone = f"a genuinely {sentiment} emotional state"
+
+    prompt = f"""
+    You are an empathetic, licensed therapist AI. You receive a journal entry along with its automated AI analysis.
+    
     Journal Entry:
     "{journal_text}"
 
     Automated Analysis:
-    - Sentiment Label: {sentiment_data['sentiment']}
-    - Sarcasm Detected: {sentiment_data['sarcasm']}
+    - Sentiment Label: {sentiment}
+    - Sarcasm Detected: {sarcasm}
 
-    Your task is to provide a clinically-informed response in three parts:
-    1. Emotional Summary — Briefly identify the core emotions or psychological states reflected in the entry.
-    2. Empathetic Reflection — Write a validating paragraph that helps the user feel understood and seen. Avoid judgment and diagnosis. Reflect both the content and tone.
-    3. Actionable Suggestions — Provide exactly 3 precise therapy-based suggestions (e.g., cognitive reframing, grounding techniques, expression practices, or ways to develop support systems). Each should be relevant to the journal entry context and practical for the user.
+    Emotional Interpretation:
+    - Based on sarcasm and sentiment data, the user's true emotional expression seems to reflect {true_tone}.
 
-    CRUCIAL RESPONSE RULES:
-    - Format output as strict JSON.
-    - No emojis, no markdown, no asterisks, and no explanations outside the JSON.
-    - Content must sound professional, empathetic, and human-like.
-    - Do not use generic or repeated phrasing; personalize based on the user's journal.
-    - Keep "reflection" under 80 words and each suggestion under 25 words.
+    Your task is to provide a human-sounding, supportive, thoughtful, three-part response:
+    
+    1. Emotional Summary — Identify the true emotional tone, considering sarcasm as a possible shield or indirect expression.
+    2. Reflection — Validate the emotions with a light acknowledgment of their communication style (especially if sarcastic or humor-based), in a max of 80 words.
+    3. Suggestions — Give exactly 3 tailored, relevant, therapy-aligned suggestions. 
+       Each should be under 25 words.
 
-    Response JSON structure:
+    RULES:
+    - Format strictly as JSON.
+    - No emojis, no markdown, no code fencing.
+    - No clinical diagnosis or judgment.
+    - Balance clarity, kindness, and authenticity.
+
+    Response Format:
     {{
         "emotional_summary": "...",
         "reflection": "...",
@@ -51,6 +71,8 @@ def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
         data = {"error": "Failed to parse Gemini response", "raw_output": text}
 
     return data
+
+
 
 
 # ✅ Test Gemini function standalone
