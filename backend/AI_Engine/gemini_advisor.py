@@ -1,15 +1,22 @@
 import os
+import json
+import re
 import google.generativeai as genai
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
+# Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
+DEBUG = True  # Set to False in production to suppress debug logs
+
 def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
-    sentiment = sentiment_data['sentiment']
-    sarcasm = sentiment_data['sarcasm']
+    # Safely extract sentiment and sarcasm with default fallbacks
+    sentiment = sentiment_data.get('sentiment', 'neutral')
+    sarcasm = sentiment_data.get('sarcasm', 'not sarcastic')
 
     # Context-aware emotional interpretation
     if sarcasm == "sarcastic":
@@ -24,6 +31,7 @@ def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
     else:
         true_tone = f"a genuinely {sentiment} emotional state"
 
+    # Build the Gemini prompt
     prompt = f"""
     You are an empathetic, licensed therapist AI. You receive a journal entry along with its automated AI analysis.
     
@@ -58,21 +66,28 @@ def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
     }}
     """
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-
-    response = model.generate_content(prompt)
-    text = response.text
-
-    import json, re
     try:
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+
+        if DEBUG:
+            print("Gemini Raw Output:")
+            print(text)
+
+        # Clean the response from any code block fencing
         clean_text = re.sub(r"```json|```", "", text).strip()
-        data = json.loads(clean_text)
-    except Exception:
-        data = {"error": "Failed to parse Gemini response", "raw_output": text}
+        return json.loads(clean_text)
 
-    return data
+    except Exception as e:
+        if DEBUG:
+            print("⚠️ Gemini parsing failed:", e)
+            print("Raw response:", response.text if 'response' in locals() else 'No response')
 
-
+        return {
+            "error": "AI analysis unavailable",
+            "raw_output": response.text if 'response' in locals() else 'No response'
+        }
 
 
 # ✅ Test Gemini function standalone
@@ -92,8 +107,8 @@ if __name__ == "__main__":
     result = generate_dynamic_advice(sample_text, sentiment_data)
 
     if "error" in result:
-        print("\n⚠️ Parsing Error:")
-        print(result["raw_output"])
+        print("\n⚠️ Parsing/Error Warning:")
+        print(result.get("raw_output", "No raw output available"))
     else:
         print("\n🧭 Gemini Response:")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

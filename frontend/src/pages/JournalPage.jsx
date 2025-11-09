@@ -30,6 +30,7 @@ export function JournalPage() {
   const [editingJournalId, setEditingJournalId] = useState(null);
   const [refresh, setRefresh] = useState(0);
   const [updateMode, setUpdateMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const { user } = useAuth();
 
@@ -80,20 +81,12 @@ const handleSave = async () => {
       return;
     }
 
+    setIsSaving(true);  // ✅ start loader
+
     const url = editingJournalId
       ? `${serverUrl.BASE_URL}api/journals/${editingJournalId}`
       : `${serverUrl.BASE_URL}api/journals/`;
     const method = editingJournalId ? "PUT" : "POST";
-
-    const analysisResult = await generateAnalysis(description);
-
-    if (analysisResult?.error) {
-      console.error("AI Analysis failed:", analysisResult);
-      alert("Error analyzing sentiment. Please try again.");
-      return;
-    }
-
-    const { sentiment, sarcasm } = analysisResult.merged;
 
     const response = await fetch(url, {
       method,
@@ -104,16 +97,17 @@ const handleSave = async () => {
         description,
         mood,
         productivity,
-        sentiment,
-        sarcasm,
       }),
     });
 
-    if (!response.ok) throw new Error("Failed to save or update journal");
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Backend error response:", errorText);
+      throw new Error("Failed to save or update journal");
+    }
 
     setRefresh(refresh + 1);
 
-    // Reset input + trigger success modal
     setTitle("");
     setDescription("");
     setMood(5);
@@ -123,8 +117,12 @@ const handleSave = async () => {
   } catch (error) {
     console.error("Error saving journal:", error);
     alert("Something went wrong while saving your journal.");
+  } finally {
+    setIsSaving(false);  // ✅ turn off loader
   }
 };
+
+
 
 
   const handleContinueWriting = () => {
@@ -332,19 +330,20 @@ const handleSave = async () => {
     setShowPastEntryAnalyticsModal(false);
   };
 
-  const LoaderOverlay = () => (
-    <div className="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/30 z-[9999]">
-      <div className="flex flex-col items-center space-y-3">
-        <div className="relative w-14 h-14">
-          <div className="absolute inset-0 rounded-full border-4 border-[#22C55E]/20"></div>
-          <div className="absolute inset-0 rounded-full border-t-4 border-[#22C55E] animate-spin"></div>
-        </div>
-        <p className="text-gray-200 text-sm font-medium tracking-wide">
-          Analyzing your reflection...
-        </p>
+const LoaderOverlay = ({ message = "Processing..." }) => (
+  <div className="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/30 z-[9999]">
+    <div className="flex flex-col items-center space-y-3">
+      <div className="relative w-14 h-14">
+        <div className="absolute inset-0 rounded-full border-4 border-[#22C55E]/20"></div>
+        <div className="absolute inset-0 rounded-full border-t-4 border-[#22C55E] animate-spin"></div>
       </div>
+      <p className="text-gray-200 text-sm font-medium tracking-wide">
+        {message}
+      </p>
     </div>
-  );
+  </div>
+);
+
 
   return (
     <div className="min-h-screen p-6 md:p-8" style={{ background: 'linear-gradient(135deg, #0B1210 0%, #101C18 100%)' }}>
@@ -486,6 +485,8 @@ const handleSave = async () => {
       `}</style>
 
       {loading && <LoaderOverlay />}
+      {isSaving && <LoaderOverlay message="Saving your journal, please wait..." />}
+
 
     </div>
   );
