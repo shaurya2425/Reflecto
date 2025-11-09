@@ -4,6 +4,7 @@ from core.firebase import db
 from AI_Engine.sentiment_analyzer import analyze_sentiment
 from AI_Engine.gemini_advisor import generate_dynamic_advice
 from pydantic import BaseModel, Field
+from datetime import datetime, timezone
 
 JOURNAL_COLLECTION = "journals"
 
@@ -17,9 +18,10 @@ class JournalCreate(BaseModel):
 
 
 # ✅ CREATE Journal
+
 def create_journal(journal_data: JournalCreate):
     print(f"👤 Creating journal for user: {journal_data.user_uid}")
-    
+
     # 🔍 Run sentiment + sarcasm analysis and Gemini AI advice
     sentiment_result = analyze_sentiment(journal_data.description)
     analysis = generate_dynamic_advice(journal_data.description, sentiment_result)
@@ -28,8 +30,11 @@ def create_journal(journal_data: JournalCreate):
     journal_dict["sentiment"] = sentiment_result["sentiment"]
     journal_dict["sarcasm"] = sentiment_result["sarcasm"]
     journal_dict["analysis"] = analysis
-    journal_dict["created_at"] = datetime.now()
-    journal_dict["updated_at"] = datetime.now()
+    
+    # ✅ Use timezone-aware UTC datetime
+    now = datetime.now(timezone.utc)
+    journal_dict["created_at"] = now
+    journal_dict["updated_at"] = now
 
     # ✅ Save to Firestore
     doc_ref = db.collection(JOURNAL_COLLECTION).document()

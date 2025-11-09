@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes.ai_routes import router as ai_router
 from routes.journal_routes import router as journal_router
+from routes.analytics_routes import router as analytics_router  # ✅ Analytics routes import
 
 # ✅ Initialize FastAPI app
 app = FastAPI(title="Reflecto AI Engine")
@@ -16,13 +17,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # allows all methods: GET, POST, PUT, DELETE, OPTIONS
     allow_headers=["*"],  # allows all headers like Content-Type, Authorization, etc.
-    expose_headers=["*"],   # 👈 add this
-
+    expose_headers=["*"],  # exposes headers to frontend
 )
 
-# ✅ Include routes
+# ✅ Include routes with proper prefixes
 app.include_router(ai_router, prefix="/api/ai", tags=["AI Engine"])
 app.include_router(journal_router, prefix="/api/journals", tags=["Journals"])
+
+# 👇 Correctly mounted without duplicating `/api/analytics`
+app.include_router(analytics_router, prefix="/api/analytics")
 
 # ✅ Optional test route
 @app.get("/")
