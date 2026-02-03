@@ -14,49 +14,66 @@ genai.configure(api_key=GEMINI_API_KEY)
 DEBUG = True  # Set to False in production to suppress debug logs
 
 def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
-    # Safely extract sentiment and sarcasm with default fallbacks
-    sentiment = sentiment_data.get('sentiment', 'neutral')
-    sarcasm = sentiment_data.get('sarcasm', 'not sarcastic')
+    import re, json
+    import google.generativeai as genai
 
-    # Context-aware emotional interpretation
+    DEBUG = False
+
+    # Extract sentiment and sarcasm safely
+    sentiment = sentiment_data.get("sentiment", "neutral")
+    sarcasm = sentiment_data.get("sarcasm", "not sarcastic")
+
+    # Interpret emotional tone
     if sarcasm == "sarcastic":
         if sentiment == "positive":
-            true_tone = "masked frustration or conflict under a playful tone"
+            true_tone = "hidden frustration or emotional conflict behind a playful tone"
         elif sentiment == "neutral":
-            true_tone = "detached or subtle dissatisfaction beneath an indifferent tone"
+            true_tone = "quiet dissatisfaction masked with dry humor or detachment"
         elif sentiment == "negative":
-            true_tone = "deep emotional difficulty or hurt masked with sarcastic humor"
+            true_tone = "emotional pain or disappointment hidden behind sarcasm"
         else:
-            true_tone = "mixed emotions expressed indirectly with sarcasm"
+            true_tone = "mixed emotions expressed indirectly through sarcasm"
     else:
         true_tone = f"a genuinely {sentiment} emotional state"
 
-    # Build the Gemini prompt
+    # Refined Gemini prompt
     prompt = f"""
-    You are an empathetic, licensed therapist AI. You receive a journal entry along with its automated AI analysis.
-    
+    You are Reflecto — a calm, kind, and emotionally aware companion.
+    You are not a therapist or coach. You respond like a real friend who listens deeply and speaks simply.
+
+    You will receive a personal journal entry and a basic emotional analysis.
+    Your goal is to write a natural, human-sounding reflection that gently mirrors the user’s tone and mood.
+
     Journal Entry:
     "{journal_text}"
 
     Automated Analysis:
-    - Sentiment Label: {sentiment}
-    - Sarcasm Detected: {sarcasm}
+    - Sentiment: {sentiment}
+    - Sarcasm: {sarcasm}
 
-    Emotional Interpretation:
-    - Based on sarcasm and sentiment data, the user's true emotional expression seems to reflect {true_tone}.
+    Emotional Understanding:
+    - The user’s true emotional state seems to show {true_tone}.
 
-    Your task is to provide a human-sounding, supportive, thoughtful, three-part response:
-    
-    1. Emotional Summary — Identify the true emotional tone, considering sarcasm as a possible shield or indirect expression.
-    2. Reflection — Validate the emotions with a light acknowledgment of their communication style (especially if sarcastic or humor-based), in a max of 80 words.
-    3. Suggestions — Give exactly 3 tailored, relevant, therapy-aligned suggestions. 
-       Each should be under 25 words.
+    Write a three-part response in plain English with warmth, balance, and honesty.
+
+    1. emotional_summary — Briefly describe the feeling you sense. Keep it human, not analytical.
+       (Avoid long or formal sentences like a therapist. Keep it short and real.)
+    2. reflection — Respond like a caring friend. Match the tone — if they sound tired, be gentle; if sarcastic, keep it lightly real.
+       Acknowledge effort and emotion without clichés or over-reassurance. Stay under 80 words.
+    3. suggestions — Offer exactly 3 small, thoughtful actions or reflections. 
+       Keep each under 25 words. Avoid “fix yourself” or motivational language — focus on calm, real-life support.
+
+    Example tone for reflection:
+    - If the journal is heavy: soft, slow, grounded.
+    - If it’s sarcastic: light empathy with a hint of shared humor.
+    - If it’s calm or hopeful: gentle encouragement.
+    - Never robotic or overly formal.
 
     RULES:
-    - Format strictly as JSON.
-    - No emojis, no markdown, no code fencing.
-    - No clinical diagnosis or judgment.
-    - Balance clarity, kindness, and authenticity.
+    - Output must be valid JSON.
+    - Use simple words that anyone can understand.
+    - No markdown, emojis, code fencing, or formatting symbols.
+    - Keep it emotionally grounded, not scripted.
 
     Response Format:
     {{
@@ -75,7 +92,7 @@ def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
             print("Gemini Raw Output:")
             print(text)
 
-        # Clean the response from any code block fencing
+        # Clean possible code block wrappers
         clean_text = re.sub(r"```json|```", "", text).strip()
         return json.loads(clean_text)
 
@@ -85,9 +102,10 @@ def generate_dynamic_advice(journal_text: str, sentiment_data: dict):
             print("Raw response:", response.text if 'response' in locals() else 'No response')
 
         return {
-            "error": "AI analysis unavailable",
+            "error": "AI advice unavailable",
             "raw_output": response.text if 'response' in locals() else 'No response'
         }
+
 
 
 # ✅ Test Gemini function standalone
